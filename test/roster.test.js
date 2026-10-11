@@ -88,3 +88,45 @@ test('a header written as ID,Name is dropped, and line numbers count it', () => 
   });
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM participants WHERE admission_id='ID'").get().n, 0);
 });
+
+test('tab-separated Excel paste imports and drops the header', () => {
+  const db = openDb();
+  const r = importRoster(db, 'Admission ID\tName\nA001\tAsha\nA002\tBen');
+  assert.deepEqual(r, { added: 2, skipped: 0, rejected: [] });
+});
+
+test('semicolon-separated file imports', () => {
+  const db = openDb();
+  const r = importRoster(db, 'A001;Asha\nA002;"Ben; Jr"');
+  assert.deepEqual(r, { added: 2, skipped: 0, rejected: [] });
+  assert.equal(db.prepare("SELECT name FROM participants WHERE admission_id='A002'").get().name, 'Ben; Jr');
+});
+
+test('Student ID,Full Name header is dropped', () => {
+  const db = openDb();
+  const r = importRoster(db, 'Student ID,Full Name\nA001,Asha');
+  assert.deepEqual(r, { added: 1, skipped: 0, rejected: [] });
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM participants').get().n, 1);
+});
+
+test('quoted comma name still works and plain comma file is unchanged', () => {
+  const db = openDb();
+  const r = importRoster(db, 'A001,"Rao, Asha"\nA002,Ben');
+  assert.deepEqual(r, { added: 2, skipped: 0, rejected: [] });
+  assert.equal(db.prepare("SELECT name FROM participants WHERE admission_id='A001'").get().name, 'Rao, Asha');
+});
+
+test('non-string input to addParticipant throws and creates no row', () => {
+  const db = openDb();
+  for (const bad of [undefined, null, 5, {}, ['x']]) {
+    assert.throws(() => addParticipant(db, bad, 'x'), /must be strings/);
+    assert.throws(() => addParticipant(db, 'A1', bad), /must be strings/);
+  }
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM participants').get().n, 0);
+});
+
+test('importRoster rejects non-string input', () => {
+  const db = openDb();
+  assert.throws(() => importRoster(db, undefined), /must be a string/);
+  assert.throws(() => importRoster(db, 42), /must be a string/);
+});
