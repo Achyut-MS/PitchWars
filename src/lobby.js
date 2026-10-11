@@ -45,8 +45,11 @@ export function startGame(db, problemId, now) {
 
 export function endGame(db, gameId, now) {
   db.transaction(() => {
-    const players = db.prepare('SELECT admission_id FROM participants WHERE game_id = ?').all(gameId);
-    db.prepare("UPDATE participants SET status='completed' WHERE game_id = ?").run(gameId);
+    const game = db.prepare('SELECT ended_at FROM games WHERE id = ?').get(gameId);
+    if (!game) throw new Error('unknown game');
+    if (game.ended_at !== null) throw new Error('game already ended');
+    const players = db.prepare("SELECT admission_id FROM participants WHERE game_id = ? AND status='in_game'").all(gameId);
+    db.prepare("UPDATE participants SET status='completed' WHERE game_id = ? AND status='in_game'").run(gameId);
     db.prepare('UPDATE games SET ended_at = ? WHERE id = ?').run(now, gameId);
     for (const p of players) logEvent(db, { ts: now, gameId, admissionId: p.admission_id, type: 'game_end' });
   })();

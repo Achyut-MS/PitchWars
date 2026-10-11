@@ -91,3 +91,22 @@ test('start and end are logged against the admission ids', () => {
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM events WHERE type='game_start'").get().n, 10);
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM events WHERE type='game_end'").get().n, 10);
 });
+
+test('a second endGame throws and changes nothing', () => {
+  const db = seeded();
+  fillAll(db);
+  const gid = startGame(db, 1, 1000);
+  endGame(db, gid, 5000);
+  assert.throws(() => endGame(db, gid, 9000), /already ended/);
+  assert.equal(db.prepare('SELECT ended_at FROM games WHERE id = ?').get(gid).ended_at, 5000);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM events WHERE type='game_end'").get().n, 10);
+});
+
+test('endGame on an unknown game id throws and the real game keeps running', () => {
+  const db = seeded();
+  fillAll(db);
+  const gid = startGame(db, 1, 1000);
+  assert.throws(() => endGame(db, gid + 99, 5000), /unknown game/);
+  assert.equal(db.prepare('SELECT ended_at FROM games WHERE id = ?').get(gid).ended_at, null);
+  assert.deepEqual(new Set(status(db)), new Set(['in_game']));
+});
