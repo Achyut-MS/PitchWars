@@ -1,6 +1,6 @@
 // Browser side of the seven puzzles. Pure functions, so they are tested in Node.
 // Each puzzle: initial(puzzle) -> state, apply(puzzle, state, tap) -> state, render(puzzle, state) -> html, answer(puzzle, state) -> answer
-const cell = (r, c, cls, text = '') => `<td class="${cls}" data-cell="${r},${c}">${text}</td>`;
+const cell = (r, c, cls, text = '') => `<td class="${esc(cls)}" data-cell="${r},${c}">${esc(text)}</td>`;
 const table = (rows) => `<table class="puzzle-grid">${rows.join('')}</table>`;
 const clone = (x) => JSON.parse(JSON.stringify(x));
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -44,7 +44,7 @@ const tower = {
   apply: (p, s, { cell: [r, c] }) => { const n = clone(s); n.grid[r][c] = (n.grid[r][c] + 1) % (p.n + 1); return n; },
   answer: (p, s) => s.grid,
   render: (p, s) => {
-    const edge = (v) => `<th>${v ?? ''}</th>`;
+    const edge = (v) => `<th>${esc(v)}</th>`;
     const rows = [`<tr><th></th>${p.top.map(edge).join('')}<th></th></tr>`];
     s.grid.forEach((row, r) => rows.push(`<tr>${edge(p.left[r])}${row.map((v, c) => cell(r, c, 'num', v || '')).join('')}${edge(p.right[r])}</tr>`));
     rows.push(`<tr><th></th>${p.bottom.map(edge).join('')}<th></th></tr>`);

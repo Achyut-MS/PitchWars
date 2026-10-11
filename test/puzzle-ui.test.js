@@ -67,6 +67,20 @@ test('shikaku: tapping a placed rectangle removes it, and an overlapping rectang
   assert.deepEqual(s.first, [2, 2]);
 });
 
+test('render escapes markup in clues and region ids', () => {
+  const evil = '<script>x</script>';
+  const pm = { n: 1, clues: [[evil]] };
+  assert.ok(UI.mosaic.render(pm, UI.mosaic.initial(pm)).includes('&lt;script'));
+  assert.equal(UI.mosaic.render(pm, UI.mosaic.initial(pm)).includes('<script'), false);
+  assert.equal(UI.shikaku.render(pm, UI.shikaku.initial(pm)).includes('<script'), false);
+  const pq = { n: 1, regions: [[evil]] };
+  assert.equal(UI.queens.render(pq, UI.queens.initial(pq)).includes('<script'), false);
+  const pl = { n: 1, count: 1, regions: [[evil]] };
+  assert.equal(UI.lits.render(pl, UI.lits.initial(pl)).includes('<script'), false);
+  const pt = { n: 1, top: [evil], bottom: [evil], left: [evil], right: [evil] };
+  assert.equal(UI.tower.render(pt, UI.tower.initial(pt)).includes('<script'), false);
+});
+
 test('sets: tapping a grouped card ungroups it, and the card text is escaped markup-free', () => {
   const p = { cards: [[0, 0, 0, 0], [1, 1, 1, 1], [2, 2, 2, 2]] };
   let s = UI.sets.initial(p);

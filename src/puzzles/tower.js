@@ -17,6 +17,11 @@ function latin(n, rng) {
   return rows.map((r) => cols.map((c) => sym[(r + c) % n] + 1));
 }
 
+// Reveals the top clue of column c, computed for that same column.
+export function revealTop(puzzle, g, c) {
+  puzzle.top[c] = visible(g.map((row) => row[c]));
+}
+
 export function generate(level, rng) {
   const n = SIZES[level - 1];
   const g = latin(n, rng);
@@ -30,8 +35,7 @@ export function generate(level, rng) {
     right: g.map((row) => clue(visible([...row].reverse()))),
   };
   if ([...puzzle.top, ...puzzle.bottom, ...puzzle.left, ...puzzle.right].every((x) => x === null)) {
-    puzzle.top[randInt(rng, n)] = visible(col(0));
-    puzzle.top[0] = visible(col(0));
+    revealTop(puzzle, g, randInt(rng, n));
   }
   return { puzzle, solution: g };
 }
