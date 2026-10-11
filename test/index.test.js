@@ -1,0 +1,68 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { openDb } from '../src/db.js';
+import { addParticipant } from '../src/roster.js';
+import { ROLES, assign, startGame } from '../src/lobby.js';
+import { phaseAt } from '../src/phases.js';
+import { activeGame } from '../src/persist.js';
+import { bootstrap } from '../src/index.js';
+
+test('a restart on the same database file resumes the running game', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'showdown-'));
+  const dbFile = join(dir, 'game.db');
+  try {
+    // First life: start a game 200 s ago, record a heartbeat, then "crash".
+    const db1 = openDb(dbFile);
+    for (let i = 0; i < 10; i++) addParticipant(db1, `S${i}`, `P${i}`);
+    let i = 0;
+    for (const c of ['A', 'B']) for (const r of ROLES) assign(db1, `S${i++}`, c, r);
+    const gid = startGame(db1, 1, 1_000_000);
+    db1.prepare('UPDATE games SET heartbeat_at = ? WHERE id = ?').run(1_200_000, gid);
+    db1.close();
+
+    // Second life: a new process with a wildly different clock.
+    const { app, stop } = await bootstrap({ dbFile, organizerPassword: 'pw', port: 0, now: () => 50_000_000 });
+    try {
+      const g = activeGame(app.db);
+      assert.deepEqual(phaseAt(g, 50_000_000), { phase: 'ideation', remainingSec: 160 });
+    } finally {
+      await stop();
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('stop() clears intervals and releases the port so the process can exit', async () => {
+  const { app, stop } = await bootstrap({ dbFile: ':memory:', organizerPassword: 'pw', port: 0 });
+  assert.ok(app.server.listening);
+  await stop();
+  assert.equal(app.server.listening, false);
+});
+
+test('a clock earlier than the last heartbeat still resumes without throwing', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'showdown-'));
+  const dbFile = join(dir, 'game.db');
+  try {
+    const db1 = openDb(dbFile);
+    for (let i = 0; i < 10; i++) addParticipant(db1, `S${i}`, `P${i}`);
+    let i = 0;
+    for (const c of ['A', 'B']) for (const r of ROLES) assign(db1, `S${i++}`, c, r);
+    const gid = startGame(db1, 1, 1_000_000);
+    db1.prepare('UPDATE games SET heartbeat_at = ? WHERE id = ?').run(1_200_000, gid);
+    db1.close();
+    const { app, stop } = await bootstrap({ dbFile, organizerPassword: 'pw', port: 0, now: () => 500 });
+    try {
+      const g = activeGame(app.db);
+      assert.ok(g);
+      assert.ok(Number.isFinite(phaseAt(g, 500).remainingSec));
+    } finally {
+      await stop();
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

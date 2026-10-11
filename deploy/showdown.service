@@ -1,0 +1,17 @@
+[Unit]
+Description=Startup Showdown game server
+After=network.target
+
+[Service]
+WorkingDirectory=/home/pi/showdown
+Environment=ORGANIZER_PASSWORD=change-me-before-the-event
+Environment=PORT=80
+Environment=DB_FILE=/home/pi/showdown/data/showdown.db
+ExecStart=/usr/bin/node src/index.js
+Restart=always
+RestartSec=1
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+User=pi
+
+[Install]
+WantedBy=multi-user.target
