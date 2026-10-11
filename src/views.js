@@ -65,7 +65,7 @@ function companyShop(ctx, game, company, idea, phase, cache) {
       }
       return {
         id: item.id, name: item.name, label: itemLabel(item, idea), option: item.option, section: item.section, role: item.role,
-        cost: item.cost, price: priceWithSale(ownedId ? item.cost - ctx.data.item(ownedId).cost : item.cost, saleMult), state, note,
+        cost: item.cost, price: state === 'owned' ? null : Math.max(1, priceWithSale(ownedId ? item.cost - ctx.data.item(ownedId).cost : item.cost, saleMult)), state, note,
         choices: item.id === 'M02' ? idea.brands : item.id === 'M03' ? idea.taglines : null,
       };
     });

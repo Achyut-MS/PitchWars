@@ -150,3 +150,32 @@ test('a bad rng cannot push an attack outside its 30 to 45 second window', async
     assert.ok(r.endsAt >= 830_000 && r.endsAt <= 845_000, String(bad));
   }
 });
+
+const cat = (h, id) => viewFor(h.ctx, h.seat.A.CFO).shop.catalog.find((i) => i.id === id);
+const cmoCat = (h, id) => viewFor(h.ctx, h.seat.A.CMO).shop.catalog.find((i) => i.id === id);
+
+test('tiers at or below an owned tier show no price and cannot be requested', () => {
+  const h = toCompetition(makeRunning());
+  give(h, 'A', ['M01-L']);
+  for (const id of ['M01-N', 'M01-M', 'M01-L']) {
+    assert.equal(cat(h, id).state, 'owned');
+    assert.equal(cat(h, id).price, null);
+    assert.equal(cmoCat(h, id).canRequest, false);
+  }
+});
+
+test('after Basic then Smart the Large upgrade price is the differential and matches the wallet delta, also in a sale', () => {
+  const h = toCompetition(makeRunning());
+  give(h, 'A', ['M01-M']);
+  assert.equal(cat(h, 'M01-L').price, 50);
+  assert.equal(cat(h, 'M01-N').price, null);
+  triggerMarketEvent(h.ctx, h.game(), 'shop_sale');
+  h.clock.t = 850_000;
+  const shown = cat(h, 'M01-L').price;
+  assert.ok(shown >= 1);
+  requestItem(h.ctx, h.game(), h.seat.A.CMO, 'M01-L');
+  const before = walletA(h);
+  cfoDecide(h.ctx, h.game(), h.seat.A.CFO, 1, true);
+  assert.equal(before - walletA(h), shown);
+  for (const i of viewFor(h.ctx, h.seat.A.CFO).shop.catalog) assert.ok(i.price === null || i.price >= 1, i.id);
+});
