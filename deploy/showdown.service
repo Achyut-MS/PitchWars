@@ -1,6 +1,7 @@
 [Unit]
 Description=Startup Showdown game server
 After=network.target
+StartLimitIntervalSec=0
 
 [Service]
 WorkingDirectory=/home/pi/showdown

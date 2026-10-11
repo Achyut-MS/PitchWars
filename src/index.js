@@ -5,6 +5,15 @@ import { openDb } from './db.js';
 import { createApp } from './server.js';
 import { activeGame, heartbeat, resumeActiveGame } from './persist.js';
 
+const PLACEHOLDER_PASSWORD = 'change-me-before-the-event';
+
+export function checkPassword(pw) {
+  if (!pw || pw === PLACEHOLDER_PASSWORD) {
+    return { ok: false, message: 'Set ORGANIZER_PASSWORD to a real secret (not empty, not the placeholder) before starting the server.' };
+  }
+  return { ok: true };
+}
+
 export async function bootstrap({ dbFile, organizerPassword, port, now = Date.now }) {
   if (dbFile !== ':memory:') mkdirSync(dirname(dbFile), { recursive: true });
   const db = openDb(dbFile);
@@ -13,10 +22,20 @@ export async function bootstrap({ dbFile, organizerPassword, port, now = Date.no
   app.db = db;
   await new Promise((resolve) => app.server.listen(port, '0.0.0.0', resolve));
 
-  const tick = setInterval(() => app.tickAll(), 1000);
+  const tick = setInterval(() => {
+    try {
+      app.tickAll();
+    } catch (err) {
+      console.error('tick failed:', err);
+    }
+  }, 1000);
   const beat = setInterval(() => {
-    const g = activeGame(db);
-    if (g) heartbeat(db, g.id, now());
+    try {
+      const g = activeGame(db);
+      if (g) heartbeat(db, g.id, now());
+    } catch (err) {
+      console.error('heartbeat failed:', err);
+    }
   }, 5000);
 
   return {
@@ -33,8 +52,9 @@ export async function bootstrap({ dbFile, organizerPassword, port, now = Date.no
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const organizerPassword = process.env.ORGANIZER_PASSWORD;
-  if (!organizerPassword) {
-    console.error('Set ORGANIZER_PASSWORD before starting the server.');
+  const check = checkPassword(organizerPassword);
+  if (!check.ok) {
+    console.error(check.message);
     process.exit(1);
   }
   const port = Number(process.env.PORT || 80);

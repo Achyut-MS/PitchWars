@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -8,7 +8,7 @@ import { addParticipant } from '../src/roster.js';
 import { ROLES, assign, startGame } from '../src/lobby.js';
 import { phaseAt } from '../src/phases.js';
 import { activeGame } from '../src/persist.js';
-import { bootstrap } from '../src/index.js';
+import { bootstrap, checkPassword } from '../src/index.js';
 
 test('a restart on the same database file resumes the running game', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'showdown-'));
@@ -65,4 +65,36 @@ test('a clock earlier than the last heartbeat still resumes without throwing', a
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('a throw inside the tick or heartbeat callback does not stop either interval', async () => {
+  mock.timers.enable({ apis: ['setInterval'] });
+  const errors = mock.method(console, 'error', () => {});
+  const { app, stop } = await bootstrap({ dbFile: ':memory:', organizerPassword: 'pw', port: 0 });
+  try {
+    let ticks = 0;
+    app.tickAll = () => { ticks++; if (ticks === 1) throw new Error('boom'); };
+    mock.timers.tick(1000);
+    mock.timers.tick(1000);
+    assert.equal(ticks, 2);
+    const realPrepare = app.db.prepare.bind(app.db);
+    let beats = 0;
+    app.db.prepare = (sql) => { beats++; if (beats === 1) throw new Error('db boom'); return realPrepare(sql); };
+    mock.timers.tick(5000);
+    mock.timers.tick(5000);
+    assert.ok(beats >= 2);
+    assert.ok(errors.mock.callCount() >= 2);
+  } finally {
+    errors.mock.restore();
+    mock.timers.reset();
+    await stop();
+  }
+});
+
+test('checkPassword rejects unset, empty and the placeholder password', () => {
+  assert.equal(checkPassword(undefined).ok, false);
+  assert.equal(checkPassword('').ok, false);
+  assert.equal(checkPassword('change-me-before-the-event').ok, false);
+  assert.match(checkPassword('').message, /ORGANIZER_PASSWORD/);
+  assert.equal(checkPassword('a-real-secret').ok, true);
 });
