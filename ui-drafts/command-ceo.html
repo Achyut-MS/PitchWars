@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Future Makers: CEO command center</title>
+<link rel="stylesheet" href="draft.css">
+<link rel="stylesheet" href="play.css">
+</head>
+<body class="play">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="i-crown" viewBox="0 0 32 32"><path d="M3,10 L10,17 L16,6 L22,17 L29,10 L26,26 H6 Z"/></symbol>
+<symbol id="i-chip" viewBox="0 0 32 32"><rect x="8" y="8" width="16" height="16" rx="2"/><path d="M12,3 V8 M20,3 V8 M12,24 V29 M20,24 V29 M3,12 H8 M3,20 H8 M24,12 H29 M24,20 H29" stroke="currentColor" stroke-width="3" fill="none"/><rect x="12" y="12" width="8" height="8" fill="var(--hole,#FBF0D9)"/></symbol>
+<symbol id="i-rupee" viewBox="0 0 32 32"><path d="M8,6 H25 M8,12 H25 M11,6 C23,6 23,19 11,19 H9 L23,30" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="square"/></symbol>
+<symbol id="i-mega" viewBox="0 0 32 32"><path d="M4,12 H10 L24,4 V28 L10,20 H4 Z"/><path d="M8,21 L10,29 H14 L12,22 Z"/></symbol>
+<symbol id="i-gear" viewBox="-26 -26 52 52"><path d="M-2.9,-16.2 L-2.5,-21.9 L2.5,-21.9 L2.9,-16.2 L9.5,-13.5 L13.7,-17.2 L17.2,-13.7 L13.5,-9.5 L16.2,-2.9 L21.9,-2.5 L21.9,2.5 L16.2,2.9 L13.5,9.5 L17.2,13.7 L13.7,17.2 L9.5,13.5 L2.9,16.2 L2.5,21.9 L-2.5,21.9 L-2.9,16.2 L-9.5,13.5 L-13.7,17.2 L-17.2,13.7 L-13.5,9.5 L-16.2,2.9 L-21.9,2.5 L-21.9,-2.5 L-16.2,-2.9 L-13.5,-9.5 L-17.2,-13.7 L-13.7,-17.2 L-9.5,-13.5 Z"/><circle r="8" fill="var(--hole,#FBF0D9)"/></symbol>
+<symbol id="i-users" viewBox="0 0 40 32"><circle cx="13" cy="9" r="6"/><path d="M1,30 C1,19 6,17 13,17 C20,17 25,19 25,30 Z"/><circle cx="29" cy="12" r="5"/><path d="M21,30 C21,22 25,20 29,20 C34,20 39,22 39,30 Z"/></symbol>
+<symbol id="i-bars" viewBox="0 0 32 32"><rect x="3" y="17" width="7" height="12"/><rect x="12.5" y="8" width="7" height="21"/><rect x="22" y="13" width="7" height="16"/></symbol>
+<symbol id="i-coins" viewBox="0 0 32 32"><ellipse cx="16" cy="8" rx="11" ry="4.5" fill="none" stroke="currentColor" stroke-width="3"/><path d="M5,8 V15 C5,18 10,20 16,20 C22,20 27,18 27,15 V8 M5,15 V22 C5,25 10,27 16,27 C22,27 27,25 27,22 V15" fill="none" stroke="currentColor" stroke-width="3"/></symbol>
+<symbol id="i-target" viewBox="0 0 48 48"><circle cx="22" cy="26" r="17" fill="none" stroke="#111" stroke-width="4"/><circle cx="22" cy="26" r="9" fill="none" stroke="#111" stroke-width="4"/><circle cx="22" cy="26" r="3" fill="#111"/><path d="M24,24 L40,8" stroke="#111" stroke-width="4" stroke-linecap="round"/><path d="M34,6 L42,6 L42,14 L38,12 L36,10 Z" fill="#111"/></symbol>
+<symbol id="i-docc" viewBox="0 0 32 32"><path d="M6,2 H20 L27,9 V30 H6 Z" fill="none" stroke="#111" stroke-width="3" stroke-linejoin="round"/><path d="M11,16 H22 M11,22 H22" stroke="#111" stroke-width="3" fill="none"/></symbol>
+</defs></svg>
+
+<header class="hud">
+  <div class="co"><svg viewBox="0 0 118 100" aria-hidden="true"><path d="M2,98 L48,2 H66 L112,98 H90 L81,76 H44 L35,98 Z M50,58 H74 L62,28 Z" fill="#FF6A1F" fill-rule="evenodd" stroke="#111" stroke-width="5" stroke-linejoin="round"/></svg><b>ALPHA</b><small>Ideas today. Impact tomorrow.</small></div>
+  <div class="timer"><div class="pillwrap"><div class="pill" role="timer" aria-label="Time left in the shop"><b id="count">04:10</b></div></div></div>
+  <div class="me"><svg class="chipbig" aria-hidden="true"><use href="#i-crown"/></svg><span class="code">CEO</span><div class="roles"><span class="on" role="img" aria-label="CEO (you)"><svg aria-hidden="true"><use href="#i-crown"/></svg></span><span class="" role="img" aria-label="CTO"><svg aria-hidden="true"><use href="#i-chip"/></svg></span><span class="" role="img" aria-label="CFO"><svg aria-hidden="true"><use href="#i-rupee"/></svg></span><span class="" role="img" aria-label="CMO"><svg aria-hidden="true"><use href="#i-mega"/></svg></span><span class="" role="img" aria-label="COO"><svg aria-hidden="true"><use href="#i-gear"/></svg></span></div><span class="team5"><svg aria-hidden="true"><use href="#i-users"/></svg>5/5</span></div>
+</header>
+
+<div class="cmd">
+  <div class="cmd-top">
+    <div class="title2"><h1 class="tab">Command center</h1>
+      <div class="desc"><svg viewBox="0 0 64 56" aria-hidden="true" style="width:66px;height:58px;flex:none"><path d="M6,16 L18,30 L32,8 L46,30 L58,16 L53,48 H11 Z" fill="#111"/><rect x="10" y="50" width="44" height="5" fill="#111"/></svg><p>Review your team's progress, approve the CTO's features, recommend items to the CFO, and keep the whole plan on track.</p></div></div>
+    <section class="budget" aria-label="Team budget"><span class="lab">Team budget</span><svg class="big" viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="8" rx="11" ry="4.5"/><path d="M5,8 V15 C5,18 10,20 16,20 C22,20 27,18 27,15 V8 M5,15 V22 C5,25 10,27 16,27 C22,27 27,25 27,22 V15"/></svg><div class="amt"><span id="budget">650</span><svg viewBox="0 0 48 40" aria-hidden="true"><ellipse cx="18" cy="12" rx="12" ry="5" fill="#FBF0D9"/><path d="M6,12 V22 C6,25 11,27 18,27 C25,27 30,25 30,22 V12" fill="#FBF0D9"/><ellipse cx="32" cy="22" rx="12" ry="5" fill="#FBF0D9"/><path d="M20,22 V32 C20,35 25,37 32,37 C39,37 44,35 44,32 V22" fill="#FBF0D9"/></svg></div><span class="after">Coins in the team wallet</span></section>
+    <section class="clockbox2" aria-label="Time remaining"><span class="lab">Time remaining</span><div class="row"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="19" fill="#FBF0D9"/><path d="M24,11 V25 L33,30" stroke-linecap="round"/></svg><b id="tleft">04:10</b></div></section>
+  </div>
+
+  <div class="cmd-cols">
+    <div>
+      <section aria-labelledby="po"><h2 class="dtab" id="po">Product overview</h2><div class="dbox"><div class="pov"><span class="no">1</span><svg class="ill" viewBox="0 0 120 96" aria-hidden="true"><g stroke="#111" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"><rect x="36" y="8" width="40" height="80" rx="5" fill="#FBF0D9"/><path d="M36,38 H76"/><circle cx="64" cy="22" r="4" fill="#FF6A1F"/><path d="M82,18 q8,4 8,12 M86,12 q13,6 13,18" fill="none" stroke="#FF6A1F" stroke-width="4"/></g></svg><div><h3>Smart Fridge Sensor</h3><p>A small sensor inside the fridge that tracks what is inside and how fresh it is.</p><span class="pill2 cat">Hardware</span> <span class="pill2 who">IoT</span></div></div></div></section>
+      <section aria-labelledby="bi"><h2 class="dtab" id="bi">Brand identity</h2><div class="dbox"><div class="brandbox2"><svg viewBox="0 0 118 100" aria-hidden="true"><path d="M2,98 L48,2 H66 L112,98 H90 L81,76 H44 L35,98 Z M50,58 H74 L62,28 Z" fill="#FF6A1F" fill-rule="evenodd" stroke="#111" stroke-width="5" stroke-linejoin="round"/></svg><div><h3 id="b-name">No brand name yet</h3><p id="b-tag">No tagline yet</p><div class="sw3" aria-hidden="true"><i style="background:#FF6A1F"></i><i style="background:#2E6BFF"></i><i style="background:#1E7B34"></i><i style="background:#7A2FBF"></i><i style="background:#111"></i></div></div></div></div></section>
+      <section aria-labelledby="pp"><h2 class="dtab" id="pp">Product build (CTO)</h2><div class="dbox"><div class="biglist"><svg viewBox="0 0 48 48" aria-hidden="true"><g stroke="#111" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" fill="#FF6A1F"><rect x="8" y="14" width="30" height="20" rx="3" fill="#FBF0D9"/><rect x="14" y="20" width="10" height="8" fill="#FF6A1F"/><path d="M38,22 H44 M38,26 H44 M8,20 H4 M8,28 H4" fill="none"/></g></svg><div id="l-prod"></div></div></div></section>
+      <section aria-labelledby="mp"><h2 class="dtab" id="mp">Marketing plan (CMO)</h2><div class="dbox"><div class="biglist"><svg viewBox="0 0 64 56" aria-hidden="true"><g stroke="#111" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"><path d="M6,22 H16 L40,8 V48 L16,34 H6 Z" fill="#FF6A1F"/><path d="M14,36 L18,52 H26 L22,38 Z" fill="#FF6A1F"/></g></svg><div id="l-mkt"></div></div></div></section>
+      <section aria-labelledby="pr"><h2 class="dtab" id="pr">Protections (COO)</h2><div class="dbox"><div class="biglist"><svg viewBox="0 0 48 52" aria-hidden="true"><path d="M24,3 L42,9 V26 C42,37 34,45 24,49 C14,45 6,37 6,26 V9 Z" fill="#FF6A1F" stroke="#111" stroke-width="4" stroke-linejoin="round"/><path d="M24,3 L42,9 V26 C42,37 34,45 24,49 Z" fill="#111"/></svg><div id="l-prot"></div></div></div></section>
+      <span id="l-brand" hidden></span>
+    </div>
+
+    <div>
+      <section aria-labelledby="tp"><h2 class="dtab" id="tp">Team progress</h2><div class="dbox"><div class="steps" id="steps"></div></div></section>
+      <section aria-labelledby="wd"><h2 class="dtab" id="wd">Waiting for your decision (<span id="wn">2</span>)</h2><div class="dbox"><div class="decide" id="decide"></div></div></section>
+      <section aria-labelledby="km"><h2 class="dtab" id="km">Sales per minute (estimated)</h2><div class="dbox"><div class="metrics">
+        <div class="metric"><span class="t">CTO</span><b id="m-cto">0</b><small>coins per minute</small></div><div class="metric"><span class="t">CMO</span><b id="m-cmo">0</b><small>coins per minute</small></div><div class="metric"><span class="t">COO</span><b id="m-coo">0</b><small>coins per minute</small></div><div class="metric"><span class="t">Whole company</span><b id="m-all">0</b><small>coins per minute</small></div></div></div></section>
+      <section aria-labelledby="ta"><h2 class="dtab" id="ta">Team activity</h2><div class="dbox"><div class="activity"><div class="act" data-role="CEO"><div class="r"><svg aria-hidden="true"><use href="#i-crown"/></svg>CEO</div><div class="tr"><i style="width:0"></i></div><span class="txt"></span></div><div class="act" data-role="CTO"><div class="r"><svg aria-hidden="true"><use href="#i-chip"/></svg>CTO</div><div class="tr"><i style="width:0"></i></div><span class="txt"></span></div><div class="act" data-role="CFO"><div class="r"><svg aria-hidden="true"><use href="#i-rupee"/></svg>CFO</div><div class="tr"><i style="width:0"></i></div><span class="txt"></span></div><div class="act" data-role="CMO"><div class="r"><svg aria-hidden="true"><use href="#i-mega"/></svg>CMO</div><div class="tr"><i style="width:0"></i></div><span class="txt"></span></div><div class="act" data-role="COO"><div class="r"><svg aria-hidden="true"><use href="#i-gear"/></svg>COO</div><div class="tr"><i style="width:0"></i></div><span class="txt"></span></div></div></div></section>
+      <section aria-labelledby="rc"><h2 class="dtab" id="rc">Recommend to the CFO</h2><div class="dbox"><div class="recbox"><label for="sel">Choose an item<select id="sel"></select></label><button class="ok" id="rec" type="button">Recommend</button><p class="note2">A recommendation goes straight to the CFO's queue. The CFO still decides, and the shop closes when the timer ends: open requests are rejected automatically.</p></div></div></section>
+    </div>
+
+    <div>
+      <section aria-labelledby="bsu"><h2 class="dtab" id="bsu">Budget summary</h2><div class="dbox"><div class="bsum"><svg viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="8" rx="11" ry="4.5"/><path d="M5,8 V15 C5,18 10,20 16,20 C22,20 27,18 27,15 V8 M5,15 V22 C5,25 10,27 16,27 C22,27 27,25 27,22 V15"/></svg><dl><dt>Total budget</dt><dd id="bs-total">1000</dd><dt>Total spent</dt><dd id="bs-spent">350</dd><dt>Remaining</dt><dd class="g" id="bs-left">650</dd></dl></div></div></section>
+      <section aria-labelledby="sb"><h2 class="dtab" id="sb">Spend breakdown</h2><div class="dbox"><div class="donutwrap"><div style="position:relative;width:130px;height:130px"><svg viewBox="0 0 36 36" id="donut" role="img" aria-label="Where the coins went"></svg><div class="mid" id="dmid"></div></div><ul class="leg" id="leg"></ul></div></div></section>
+      <section class="goal" aria-labelledby="yg" style="margin-top:14px"><svg viewBox="0 0 48 48" aria-hidden="true" style="width:44px;height:44px;flex:none"><circle cx="22" cy="26" r="17" fill="none" stroke="#111" stroke-width="4"/><circle cx="22" cy="26" r="9" fill="none" stroke="#111" stroke-width="4"/><circle cx="22" cy="26" r="3" fill="#111"/><path d="M24,24 L40,8" stroke="#111" stroke-width="4" stroke-linecap="round"/><path d="M34,6 L42,6 L42,14 L38,12 L36,10 Z" fill="#111"/></svg><div><h3 id="yg">Your goal</h3><ul><li>Approve the CTO's features, or reject the ones you do not want.</li><li>Recommend items the team has missed.</li><li>Keep the budget healthy for the Competition.</li><li>Remember: the shop closes when the timer ends.</li></ul></div></section>
+    </div>
+  </div>
+</div>
+<div class="toast2" id="toast" role="status" hidden></div>
+<script>
+  // Draft only. Shows the CEO's real jobs: approve the CTO's features, recommend items to the CFO, and watch the team's sales per minute.
+  const START = 1000, LEVEL = [0, 13, 20, 27];
+  const state = {
+    wallet: 650,
+    owned: [ // approved by the CFO already
+      { id: 'HC02', name: 'Microcontroller Board', who: 'CTO', cat: 'Product', price: 120 }, { id: 'HC01', name: 'Sensor', who: 'CTO', cat: 'Product', price: 80 },
+      { id: 'M02', name: 'Brand name: KeepFresh', who: 'CMO', cat: 'Marketing', price: 40 }, { id: 'M01-N', name: 'Target user: Small niche', who: 'CMO', cat: 'Marketing', price: 50 },
+      { id: 'O01', name: 'Fix: Sensor gives wrong freshness readings', who: 'COO', cat: 'Protection', price: 60 } ],
+    waiting: [ { id: 'F01-S', name: 'Core Function (Smart)', who: 'CTO', price: 180 }, { id: 'F03-B', name: 'User Interface (Basic)', who: 'CTO', price: 70 } ],
+    inCFO: { CTO: 0, CMO: 1, COO: 0, CFO: 0, CEO: 0 }, decisions: 0,
+  };
+  const SENT = { CEO: 0, CTO: 4, CFO: 0, CMO: 3, COO: 1 };
+  const CATALOG = [['M01-M', 'Target user: Medium group', 100, 'CMO'], ['M04-S', 'Ad campaign: Social posts', 80, 'CMO'], ['M03', 'Tagline', 40, 'CMO'], ['O02', 'Risk fix 2', 100, 'COO'], ['O04', 'Supplier Backup', 80, 'COO'], ['O05', 'Testing package (Basic)', 100, 'COO'], ['HC04', 'Display', 90, 'CTO']];
+  const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const COLOUR = { Product: '#FF6A1F', Marketing: '#FFC21A', Protection: '#1E7B34', Remaining: '#B8B8B8' };
+  const tone = n => Math.round(n * 10) / 10;
+  function rates() {
+    const ids = state.owned.map(o => o.id);
+    const parts = ids.filter(i => /^(HC|SC)/.test(i)).length, feats = ids.filter(i => /^F0/.test(i));
+    const FT = { 'F01-S': 2, 'F03-B': 1 }; const pts = feats.map(i => FT[i] || 1).sort((a, b) => b - a).slice(0, 3).reduce((a, b) => a + b, 0) / 3;
+    const curve = p => p <= 0 ? 0 : p <= 1 ? 13 * p : Math.min(27, 13 + 7 * (p - 1));
+    const CTO = curve(pts) + Math.min(4, parts);
+    const CMO = curve(((ids.includes('M01-N') ? 1 : ids.includes('M01-M') ? 2 : 0) + 0) / 2) + (ids.includes('M02') ? 2 : 0) + (ids.includes('M03') ? 2 : 0);
+    const fixes = ids.filter(i => /^O0[123]$/.test(i)).length;
+    const COO = LEVEL[fixes] + (ids.includes('O04') ? 2 : 0);
+    return { CTO, CMO, COO, total: CTO + CMO + COO };
+  }
+  function arc(parts, total) { let off = 0; return parts.filter(p => p.v > 0).map(p => { const len = p.v / total * 100; const s = `<circle r="15.9155" cx="18" cy="18" fill="none" stroke="${p.c}" stroke-width="7" stroke-dasharray="${len} ${100 - len}" stroke-dashoffset="${-off}"></circle>`; off += len; return s; }).join(''); }
+  function draw() {
+    const spent = state.owned.reduce((s, o) => s + o.price, 0), left = START - spent;
+    $('#budget').textContent = left; $('#bs-total').textContent = START; $('#bs-spent').textContent = spent; $('#bs-left').textContent = left;
+    const by = { Product: 0, Marketing: 0, Protection: 0 }; state.owned.forEach(o => by[o.cat] += o.price);
+    const parts = [...Object.entries(by).map(([n, v]) => ({ n, v })), { n: 'Remaining', v: Math.max(0, left) }];
+    $('#donut').innerHTML = arc(parts.map(p => ({ v: p.v, c: COLOUR[p.n] })), Math.max(1, parts.reduce((s, p) => s + p.v, 0)));
+    $('#dmid').innerHTML = spent + '<small>SPENT</small>';
+    $('#leg').innerHTML = parts.map(p => `<li><i style="background:${COLOUR[p.n]}"></i>${p.n}<b>${p.v}</b></li>`).join('');
+    const own = (who, f = () => true) => state.owned.filter(o => o.who === who && f(o));
+    const li = a => a.length ? '<ul>' + a.map(o => `<li>${o.name}</li>`).join('') + '</ul>' : '<p class="none">Nothing yet.</p>';
+    $('#l-brand').innerHTML = own('CMO', o => /^M0[23]/.test(o.id)).length ? '' : '';
+    const nm = state.owned.find(o => o.id === 'M02'), tg = state.owned.find(o => o.id === 'M03');
+    $('#b-name').textContent = nm ? nm.name.replace('Brand name: ', '') : 'No brand name yet'; $('#b-tag').textContent = tg ? tg.name.replace('Tagline: ', '') : 'No tagline yet';
+    $('#l-mkt').innerHTML = li(own('CMO', o => !/^M0[23]$/.test(o.id)));
+    $('#l-prot').innerHTML = li(own('COO'));
+    $('#l-prod').innerHTML = li(own('CTO'));
+    // progress
+    const feat = state.owned.filter(o => /^F0/.test(o.id)).length, fixes = state.owned.filter(o => /^O0[123]$/.test(o.id)).length;
+    const steps = [['Base idea', true, 'Picked'], ['Product (CTO)', feat > 0 ? true : 'part', feat + ' features'], ['Branding (CMO)', nm && tg ? true : (nm || tg ? 'part' : false), (nm ? 1 : 0) + (tg ? 1 : 0) + ' of 2'], ['Risk fixes (COO)', fixes === 3 ? true : (fixes ? 'part' : false), fixes + ' of 3'], ['Budget', left >= 0 ? true : 'part', left >= 0 ? 'In budget' : 'Overspent'], ['Shop closes', false, 'At the timer']];
+    $('#steps').innerHTML = steps.map(([n, d, sub]) => `<div class="step ${d === true ? 'done' : d === 'part' ? 'part' : ''}"><span class="c">${d === true ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5,12.5 L10,17.5 L19,7"/></svg>' : ''}</span>${n}<small>${sub}</small></div>`).join('');
+    const r = rates();
+    $('#m-cto').textContent = tone(r.CTO); $('#m-cmo').textContent = tone(r.CMO); $('#m-coo').textContent = tone(r.COO); $('#m-all').textContent = tone(r.total);
+    // activity
+    $$('.act').forEach(a => { const role = a.dataset.role; const sent = SENT[role] + (role === 'CEO' ? state.decisions : 0), ok = state.owned.filter(o => o.who === role).length + (role === 'CEO' ? state.decisions : 0);
+      const pct = sent ? Math.min(100, Math.round(ok / sent * 100)) : 0; $('i', a).style.width = pct + '%'; $('.txt', a).textContent = role === 'CFO' ? state.owned.length + ' decided' : (role === 'CEO' ? state.decisions + ' decisions' : ok + ' of ' + sent + ' approved'); });
+    // waiting for the CEO
+    $('#decide').innerHTML = state.waiting.length ? state.waiting.map((w, i) => `<div class="drow"><div><h3>${w.name}</h3><small>Suggested by the ${w.who}</small></div><span class="pr">${w.price}</span><div style="display:flex;gap:6px"><button class="ok" type="button" data-i="${i}" data-a="ok" aria-label="Approve ${w.name}">Approve</button><button class="no" type="button" data-i="${i}" data-a="no" aria-label="Reject ${w.name}">Reject</button></div></div>`).join('') : '<div class="emptyq">Nothing is waiting for you.</div>';
+    $('#wn').textContent = state.waiting.length;
+  }
+  $('#decide').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const w = state.waiting.splice(+b.dataset.i, 1)[0]; state.decisions++; toast(b.dataset.a === 'ok' ? w.name + ' goes to the CFO queue.' : w.name + ' was rejected.'); draw(); });
+  $('#sel').innerHTML = CATALOG.map(c => `<option value="${c[0]}">${c[1]} (${c[2]} coins, ${c[3]})</option>`).join('');
+  $('#rec').addEventListener('click', () => { const c = CATALOG.find(x => x[0] === $('#sel').value); state.decisions++; toast('Recommended: ' + c[1] + '. It goes straight to the CFO queue.'); draw(); });
+  function toast(t) { const el = $('#toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 3200); }
+  let s = 250; const el = $('#count'), el2 = $('#tleft'), pill = el.closest('.pill');
+  setInterval(() => { s = s > 0 ? s - 1 : 250; const t = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); el.textContent = t; el2.textContent = t; pill.classList.toggle('red', s <= 10); }, 1000);
+  draw();
+</script>
+</body>
+</html>

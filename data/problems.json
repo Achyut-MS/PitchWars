@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "title": "Food waste",
+    "statement": "Homes, canteens and shops throw away huge amounts of good food every day."
+  },
+  {
+    "id": 2,
+    "title": "Water shortage",
+    "statement": "People waste water they don't know they're wasting, and many places run short."
+  },
+  {
+    "id": 3,
+    "title": "Student stress",
+    "statement": "Students feel overloaded and don't know where to get help."
+  },
+  {
+    "id": 4,
+    "title": "Road safety",
+    "statement": "Two-wheeler riders and pedestrians get hurt on busy roads every day."
+  },
+  {
+    "id": 5,
+    "title": "Elderly living alone",
+    "statement": "Older people living alone need safety and company without moving out."
+  },
+  {
+    "id": 6,
+    "title": "Small shopkeepers",
+    "statement": "Local shops struggle to track stock, customers and sales."
+  },
+  {
+    "id": 7,
+    "title": "Waste and recycling",
+    "statement": "Households mix up their waste, so recycling rarely works."
+  },
+  {
+    "id": 8,
+    "title": "Disaster readiness",
+    "statement": "Floods and storms hit with too little warning, and people don't know what to do."
+  }
+]

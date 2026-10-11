@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Future Makers: Startup Showdown, organizer lobby and roles</title>
+<link rel="stylesheet" href="draft.css">
+<link rel="stylesheet" href="shell.css">
+</head>
+<body class="shell">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="i-users" viewBox="0 0 40 32"><circle cx="13" cy="9" r="6"/><path d="M1,30 C1,19 6,17 13,17 C20,17 25,19 25,30 Z"/><circle cx="29" cy="12" r="5"/><path d="M21,30 C21,22 25,20 29,20 C34,20 39,22 39,30 Z"/></symbol>
+<symbol id="i-play" viewBox="0 0 32 32"><path d="M8,3 L28,16 L8,29 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M8,3 L28,16 L8,29 Z"/></symbol>
+<symbol id="i-bars" viewBox="0 0 32 32"><rect x="3" y="17" width="7" height="12"/><rect x="12.5" y="8" width="7" height="21"/><rect x="22" y="13" width="7" height="16"/></symbol>
+<symbol id="i-doc" viewBox="0 0 32 32"><path d="M6,3 H26 V29 H6 Z" fill="none" stroke="currentColor" stroke-width="3"/><path d="M11,10 H21 M11,16 H21 M11,22 H21" stroke="currentColor" stroke-width="3" fill="none"/></symbol>
+<symbol id="i-gear" viewBox="-26 -26 52 52" fill="currentColor"><path d="M-2.9,-16.2 L-2.5,-21.9 L2.5,-21.9 L2.9,-16.2 L9.5,-13.5 L13.7,-17.2 L17.2,-13.7 L13.5,-9.5 L16.2,-2.9 L21.9,-2.5 L21.9,2.5 L16.2,2.9 L13.5,9.5 L17.2,13.7 L13.7,17.2 L9.5,13.5 L2.9,16.2 L2.5,21.9 L-2.5,21.9 L-2.9,16.2 L-9.5,13.5 L-13.7,17.2 L-17.2,13.7 L-13.5,9.5 L-16.2,2.9 L-21.9,2.5 L-21.9,-2.5 L-16.2,-2.9 L-13.5,-9.5 L-17.2,-13.7 L-13.7,-17.2 L-9.5,-13.5 Z" fill-rule="evenodd"/><circle r="8" fill="var(--hole,#FBF0D9)"/></symbol>
+<symbol id="i-clock" viewBox="0 0 48 48"><circle cx="24" cy="24" r="18"/><path d="M24,12 V25 L32,30"/></symbol>
+<symbol id="i-edit" viewBox="0 0 32 32"><path d="M5,9 V27 H23 V18" fill="none" stroke="currentColor" stroke-width="2.8"/><path d="M13,20 L12,25 L17,24 L28,13 L24,9 Z" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linejoin="round"/></symbol>
+<symbol id="i-adduser" viewBox="0 0 40 32"><circle cx="14" cy="9" r="6.5"/><path d="M2,30 C2,19 7,17 14,17 C21,17 26,19 26,30 Z"/><path d="M32,6 V18 M26,12 H38" stroke="currentColor" stroke-width="3.6" fill="none"/></symbol>
+<symbol id="i-user" viewBox="0 0 32 32"><circle cx="16" cy="10" r="6.5"/><path d="M4,30 C4,20 9,17 16,17 C23,17 28,20 28,30 Z"/></symbol>
+<symbol id="i-half" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12"/><path d="M16,4 A12,12 0 0 0 16,28 Z" fill="var(--paper)"/></symbol>
+<symbol id="i-crown" viewBox="0 0 32 32"><path d="M3,10 L10,17 L16,6 L22,17 L29,10 L26,26 H6 Z"/></symbol>
+<symbol id="i-chip" viewBox="0 0 32 32"><rect x="8" y="8" width="16" height="16" rx="2"/><path d="M12,3 V8 M20,3 V8 M12,24 V29 M20,24 V29 M3,12 H8 M3,20 H8 M24,12 H29 M24,20 H29" stroke="currentColor" stroke-width="3" fill="none"/><rect x="12" y="12" width="8" height="8" fill="var(--paper)"/></symbol>
+<symbol id="i-rupee" viewBox="0 0 32 32"><path d="M8,6 H25 M8,12 H25 M11,6 C23,6 23,19 11,19 H9 L23,30" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="square"/></symbol>
+<symbol id="i-mega" viewBox="0 0 32 32"><path d="M4,12 H10 L24,4 V28 L10,20 H4 Z"/><path d="M8,21 L10,29 H14 L12,22 Z"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 32 32"><path d="M26,13 A10,10 0 1 0 25,21" fill="none" stroke="currentColor" stroke-width="3.4"/><path d="M27,5 V14 H18" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round"/></symbol>
+<symbol id="i-info" viewBox="0 0 48 48"><circle cx="24" cy="24" r="20" fill="none" stroke="#111" stroke-width="3.5"/><circle cx="24" cy="14.5" r="2.6" fill="#111"/><path d="M24,21 V35" stroke="#111" stroke-width="4" stroke-linecap="round"/></symbol>
+</defs></svg>
+<div class="frame">
+  <div class="brandbox"><svg class="logo" viewBox="0 0 120 120" role="img" aria-label="Makerspace logo"><circle cx="60" cy="60" r="57" fill="#111"/><circle cx="60" cy="60" r="53" fill="none" stroke="#FF6A1F" stroke-width="2.5"/>
+<defs><path id="arc" d="M60,60 m-41,0 a41,41 0 1,1 82,0"/></defs><text font-family="Space Mono, monospace" font-weight="700" font-size="13.5" letter-spacing="3" fill="#FBF0D9"><textPath href="#arc" startOffset="2%">MAKER SPACE</textPath></text>
+<g stroke="#FBF0D9" stroke-width="2.6" stroke-linecap="round" fill="none"><path d="M60,92 V62"/><path d="M60,74 L47,60 M60,68 L74,54 M60,62 L52,46 M60,62 L68,44 M47,60 L38,56 M74,54 L82,50"/></g><g fill="#FBF0D9"><circle cx="52" cy="45" r="3"/><circle cx="68" cy="43" r="3"/><circle cx="38" cy="55" r="3"/><circle cx="83" cy="49" r="3"/><circle cx="60" cy="40" r="3"/></g><circle cx="60" cy="102" r="2.6" fill="#FF6A1F"/></svg></div>
+  <header class="head">
+    <div><h1>Future <b>Makers</b></h1><div class="sub2">Startup Showdown</div></div>
+    <div class="tag">Create.<br>Ideate.<br>Innovate.</div>
+    <svg class="art-h" viewBox="0 0 300 130" role="img" aria-label="A light bulb and gears">
+<g aria-hidden="true"><rect x="0" y="10" width="70" height="110" fill="url(#hd)"/>
+<defs><pattern id="hd" width="7" height="7" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.6" fill="#FF6A1F"/></pattern></defs>
+<g transform="translate(110 70)" stroke="#111" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"><g><line x1="-50.2" y1="-33.0" x2="-65.8" y2="-42.0"/><line x1="-29.0" y1="-54.2" x2="-38.0" y2="-69.8"/><line x1="0.0" y1="-62.0" x2="0.0" y2="-80.0"/><line x1="29.0" y1="-54.2" x2="38.0" y2="-69.8"/><line x1="50.2" y1="-33.0" x2="65.8" y2="-42.0"/></g>
+<path d="M-24,28 C-52,6 -42,-40 0,-44 C42,-40 52,6 24,28 L24,44 L-24,44 Z" fill="#FBF0D9"/><path d="M-11,44 L-11,10 L0,22 L11,10 L11,44" fill="none"/><rect x="-20" y="44" width="40" height="11" rx="4" fill="#FBF0D9"/></g>
+<g transform="translate(222 52)" stroke="#111" stroke-width="5" stroke-linejoin="round"><path d="M-9.0,-46.1 L-7.6,-61.5 L7.6,-61.5 L9.0,-46.1 L19.9,-42.6 L30.1,-54.2 L42.3,-45.3 L34.4,-32.1 L41.1,-22.8 L56.2,-26.2 L60.9,-11.8 L46.6,-5.7 L46.6,5.7 L60.9,11.8 L56.2,26.2 L41.1,22.8 L34.4,32.1 L42.3,45.3 L30.1,54.2 L19.9,42.6 L9.0,46.1 L7.6,61.5 L-7.6,61.5 L-9.0,46.1 L-19.9,42.6 L-30.1,54.2 L-42.3,45.3 L-34.4,32.1 L-41.1,22.8 L-56.2,26.2 L-60.9,11.8 L-46.6,5.7 L-46.6,-5.7 L-60.9,-11.8 L-56.2,-26.2 L-41.1,-22.8 L-34.4,-32.1 L-42.3,-45.3 L-30.1,-54.2 L-19.9,-42.6 Z" fill="#FF6A1F" transform="scale(.8)"/><circle r="20" fill="#FBF0D9"/><circle r="8" fill="#FF6A1F"/></g>
+<g transform="translate(275 96) scale(.5)" stroke="#111" stroke-width="7" stroke-linejoin="round"><path d="M-9.0,-46.1 L-7.6,-61.5 L7.6,-61.5 L9.0,-46.1 L19.9,-42.6 L30.1,-54.2 L42.3,-45.3 L34.4,-32.1 L41.1,-22.8 L56.2,-26.2 L60.9,-11.8 L46.6,-5.7 L46.6,5.7 L60.9,11.8 L56.2,26.2 L41.1,22.8 L34.4,32.1 L42.3,45.3 L30.1,54.2 L19.9,42.6 L9.0,46.1 L7.6,61.5 L-7.6,61.5 L-9.0,46.1 L-19.9,42.6 L-30.1,54.2 L-42.3,45.3 L-34.4,32.1 L-41.1,22.8 L-56.2,26.2 L-60.9,11.8 L-46.6,5.7 L-46.6,-5.7 L-60.9,-11.8 L-56.2,-26.2 L-41.1,-22.8 L-34.4,-32.1 L-42.3,-45.3 L-30.1,-54.2 L-19.9,-42.6 Z" fill="#FBF0D9"/><circle r="26" fill="#FBF0D9"/><circle r="10" fill="#FF6A1F"/></g>
+<g transform="translate(168 108) scale(.36)" stroke="#111" stroke-width="8" stroke-linejoin="round"><path d="M-9.0,-46.1 L-7.6,-61.5 L7.6,-61.5 L9.0,-46.1 L19.9,-42.6 L30.1,-54.2 L42.3,-45.3 L34.4,-32.1 L41.1,-22.8 L56.2,-26.2 L60.9,-11.8 L46.6,-5.7 L46.6,5.7 L60.9,11.8 L56.2,26.2 L41.1,22.8 L34.4,32.1 L42.3,45.3 L30.1,54.2 L19.9,42.6 L9.0,46.1 L7.6,61.5 L-7.6,61.5 L-9.0,46.1 L-19.9,42.6 L-30.1,54.2 L-42.3,45.3 L-34.4,32.1 L-41.1,22.8 L-56.2,26.2 L-60.9,11.8 L-46.6,5.7 L-46.6,-5.7 L-60.9,-11.8 L-56.2,-26.2 L-41.1,-22.8 L-34.4,-32.1 L-42.3,-45.3 L-30.1,-54.2 L-19.9,-42.6 Z" fill="#FBF0D9"/><circle r="26" fill="#FBF0D9"/></g></g></svg>
+  </header>
+
+  <aside class="side">
+    <div class="who">Organizer<br>Panel</div>
+    <nav class="nav" aria-label="Organizer sections"><a href="#" aria-current="page"><svg aria-hidden="true"><use href="#i-users"/></svg>Lobby &amp; Roles</a><a href="#"><svg aria-hidden="true"><use href="#i-play"/></svg>Game Control</a><a href="#"><svg aria-hidden="true"><use href="#i-bars"/></svg>Live Monitor</a><a href="#"><svg aria-hidden="true"><use href="#i-doc"/></svg>Records &amp; Export</a><a href="#"><svg aria-hidden="true"><use href="#i-gear"/></svg>Settings</a></nav>
+    <div class="deco"><svg viewBox="0 0 256 300" role="img" aria-label="A rocket taking off"><defs><pattern id="sd" width="7" height="7" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.6" fill="#FF6A1F"/></pattern></defs>
+<g aria-hidden="true"><rect x="0" y="60" width="256" height="240" fill="url(#sd)" opacity=".85"/>
+<g stroke="#111" stroke-width="7"><circle cx="40" cy="262" r="30"/><circle cx="92" cy="244" r="38"/><circle cx="150" cy="268" r="30"/><circle cx="214" cy="250" r="34"/></g><g fill="#FBF0D9"><circle cx="40" cy="262" r="30"/><circle cx="92" cy="244" r="38"/><circle cx="150" cy="268" r="30"/><circle cx="214" cy="250" r="34"/></g>
+<g transform="translate(112 130) rotate(-28) scale(.95)" stroke="#111" stroke-width="6" stroke-linejoin="round">
+<path d="M-18,64 L0,138 L18,64 Z" fill="#FF6A1F"/><path d="M-38,10 L-84,84 L-38,62 Z" fill="#FF6A1F"/><path d="M38,10 L84,84 L38,62 Z" fill="#FF6A1F"/>
+<path d="M0,-124 C46,-86 54,-6 40,64 L-40,64 C-54,-6 -46,-86 0,-124 Z" fill="#FBF0D9"/><path d="M0,-124 C24,-104 36,-84 40,-64 L-40,-64 C-36,-84 -24,-104 0,-124 Z" fill="#FF6A1F"/>
+<rect x="-24" y="64" width="48" height="12" fill="#111"/><circle cy="-20" r="24" fill="#FF6A1F"/><circle cy="-20" r="13" fill="#FBF0D9" stroke-width="4"/></g>
+<path d="M30,120 l4,-10 l4,10 l10,4 l-10,4 l-4,10 l-4,-10 l-10,-4 z" fill="#111"/></g></svg><div class="vs2"><div>Two companies.<br>One victory.</div></div></div>
+  </aside>
+
+  <main class="main">
+    <div class="col">
+      <div class="titlebar">
+        <h2>Participant Lobby</h2>
+        <div class="session">Session 1 <button class="icon-btn" type="button" aria-label="Rename the session"><svg aria-hidden="true"><use href="#i-edit"/></svg></button></div>
+        <div class="roster">Roster: 10/10 joined<span class="meter" role="progressbar" aria-valuenow="10" aria-valuemin="0" aria-valuemax="10" aria-label="Participants joined"><i style="width:100%"></i></span></div>
+      </div>
+
+      <div class="tablewrap"><table class="t">
+        <caption class="sr" style="position:absolute;left:-9999px">Participants in this session</caption>
+        <thead><tr><th scope="col">#</th><th scope="col">Admission ID</th><th scope="col">Name</th><th scope="col">Status</th><th scope="col">Company</th><th scope="col">Role</th><th scope="col">Actions</th></tr></thead>
+        <tbody><tr><td class="num">1</td><td>DSA001</td><td>Aarav Sharma</td><td><span class="dot"></span>Joined</td><td>-</td><td>-</td><td><button class="btn-sm" type="button" aria-label="Assign Aarav Sharma">Assign</button></td></tr><tr><td class="num">2</td><td>DSA002</td><td>Diya Nair</td><td><span class="dot"></span>Joined</td><td>-</td><td>-</td><td><button class="btn-sm" type="button" aria-label="Assign Diya Nair">Assign</button></td></tr><tr><td class="num">3</td><td>DSA003</td><td>Rohan Mehta</td><td><span class="dot"></span>Joined</td><td>-</td><td>-</td><td><button class="btn-sm" type="button" aria-label="Assign Rohan Mehta">Assign</button></td></tr><tr><td class="num">4</td><td>DSA004</td><td>Sneha Iyer</td><td><span class="dot"></span>Joined</td><td>-</td><td>-</td><td><button class="btn-sm" type="button" aria-label="Assign Sneha Iyer">Assign</button></td></tr><tr><td class="num">5</td><td>DSA005</td><td>Karthik Rao</td><td><span class="dot"></span>Joined</td><td>-</td><td>-</td><td><button class="btn-sm" type="button" aria-label="Assign Karthik Rao">Assign</button></td></tr><tr><td class="num">6</td><td>DSA006</td><td>Ananya Gupta</td><td><span class="dot off"></span>Not Joined</td><td>-</td><td>-</td><td><button class="btn-sm" type="button" aria-label="Remove Ananya Gupta from the roster">Remove</button></td></tr><tr><td class="num">7</td><td>DSA007</td><td>Vivaan Singh</td><td><span class="dot"></span>Joined</td><td>-</td><td>-</td><td><button class="btn-sm" type="button" aria-label="Assign Vivaan Singh">Assign</button></td></tr><tr><td class="num">8</td><td>DSA008</td><td>Ishita Verma</td><td><span class="dot"></span>Joined</td><td>-</td><td>-</td><td><button class="btn-sm" type="button" aria-label="Assign Ishita Verma">Assign</button></td></tr><tr><td class="num">9</td><td>DSA009</td><td>Aditya Kulkarni</td><td><span class="dot"></span>Joined</td><td>-</td><td>-</td><td><button class="btn-sm" type="button" aria-label="Assign Aditya Kulkarni">Assign</button></td></tr><tr><td class="num">10</td><td>DSA010</td><td>Meera Reddy</td><td><span class="dot"></span>Joined</td><td>-</td><td>-</td><td><button class="btn-sm" type="button" aria-label="Assign Meera Reddy">Assign</button></td></tr></tbody></table></div>
+
+      <div class="companies">
+        <section class="company alpha" aria-label="Company Alpha"><header><svg class="mark" viewBox="0 0 54 44" aria-hidden="true"><path d="M5,42 L25,4 H33 L48,42 H39 L35,31 H21 L16,42 Z M24,24 H32 L28,13 Z" fill="#6FA0FF" fill-rule="evenodd" stroke="#FBF0D9" stroke-width="2.5" stroke-linejoin="round"/></svg><h3>Company Alpha</h3><span class="count"><svg aria-hidden="true"><use href="#i-users"/></svg>5 / 5</span></header><div class="rule"></div>
+          <div class="tablewrap" style="border:0"><table class="t"><thead><tr><th scope="col">Role</th><th scope="col">Participant</th><th scope="col">Admission ID</th><th scope="col">Actions</th></tr></thead><tbody><tr><td><span class="role"><svg class="" aria-hidden="true"><use href="#i-crown"/></svg>CEO</span></td><td class="muted2">Not assigned</td><td class="muted2">-</td><td><button class="btn-sm blue" type="button" aria-label="Assign CEO of Company Alpha">Assign</button></td></tr><tr><td><span class="role"><svg class="" aria-hidden="true"><use href="#i-chip"/></svg>CTO</span></td><td class="muted2">Not assigned</td><td class="muted2">-</td><td><button class="btn-sm blue" type="button" aria-label="Assign CTO of Company Alpha">Assign</button></td></tr><tr><td><span class="role"><svg class="" aria-hidden="true"><use href="#i-rupee"/></svg>CFO</span></td><td class="muted2">Not assigned</td><td class="muted2">-</td><td><button class="btn-sm blue" type="button" aria-label="Assign CFO of Company Alpha">Assign</button></td></tr><tr><td><span class="role"><svg class="" aria-hidden="true"><use href="#i-mega"/></svg>CMO</span></td><td class="muted2">Not assigned</td><td class="muted2">-</td><td><button class="btn-sm blue" type="button" aria-label="Assign CMO of Company Alpha">Assign</button></td></tr><tr><td><span class="role"><svg class="" aria-hidden="true"><use href="#i-gear"/></svg>COO</span></td><td class="muted2">Not assigned</td><td class="muted2">-</td><td><button class="btn-sm blue" type="button" aria-label="Assign COO of Company Alpha">Assign</button></td></tr></tbody></table></div></section>
+        <section class="company beta" aria-label="Company Beta"><header><svg class="mark" viewBox="0 0 54 44" aria-hidden="true"><path d="M8,6 H34 C45,6 47,17 40,21 C48,24 47,38 35,38 H5 L8,29 H30 L31,24 H11 L13,17 H34 L35,12 H6 Z" fill="#FF6A1F" stroke="#FBF0D9" stroke-width="2.5" stroke-linejoin="round"/></svg><h3>Company Beta</h3><span class="count"><svg aria-hidden="true"><use href="#i-users"/></svg>5 / 5</span></header><div class="rule"></div>
+          <div class="tablewrap" style="border:0"><table class="t"><thead><tr><th scope="col">Role</th><th scope="col">Participant</th><th scope="col">Admission ID</th><th scope="col">Actions</th></tr></thead><tbody><tr><td><span class="role"><svg class="" aria-hidden="true"><use href="#i-crown"/></svg>CEO</span></td><td class="muted2">Not assigned</td><td class="muted2">-</td><td><button class="btn-sm orange" type="button" aria-label="Assign CEO of Company Beta">Assign</button></td></tr><tr><td><span class="role"><svg class="" aria-hidden="true"><use href="#i-chip"/></svg>CTO</span></td><td class="muted2">Not assigned</td><td class="muted2">-</td><td><button class="btn-sm orange" type="button" aria-label="Assign CTO of Company Beta">Assign</button></td></tr><tr><td><span class="role"><svg class="" aria-hidden="true"><use href="#i-rupee"/></svg>CFO</span></td><td class="muted2">Not assigned</td><td class="muted2">-</td><td><button class="btn-sm orange" type="button" aria-label="Assign CFO of Company Beta">Assign</button></td></tr><tr><td><span class="role"><svg class="" aria-hidden="true"><use href="#i-mega"/></svg>CMO</span></td><td class="muted2">Not assigned</td><td class="muted2">-</td><td><button class="btn-sm orange" type="button" aria-label="Assign CMO of Company Beta">Assign</button></td></tr><tr><td><span class="role"><svg class="" aria-hidden="true"><use href="#i-gear"/></svg>COO</span></td><td class="muted2">Not assigned</td><td class="muted2">-</td><td><button class="btn-sm orange" type="button" aria-label="Assign COO of Company Beta">Assign</button></td></tr></tbody></table></div></section>
+      </div>
+
+      <div class="note"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#i-info"/></svg>
+        <ul><li>Assign all 10 participants to companies and roles before starting the game.</li><li>Roles are organizer-assigned. Participants cannot choose or swap roles.</li><li>Only participants from the uploaded roster can join.</li></ul></div>
+    </div>
+
+    <div class="col right-col">
+      <button class="addtop" type="button"><svg aria-hidden="true"><use href="#i-adduser"/></svg>Add Participant</button>
+      <section class="box"><h3>Roster &amp; Session</h3><div class="body">
+        <div class="stat"><svg aria-hidden="true"><use href="#i-users"/></svg>Total Participants<b>10 / 10</b></div>
+        <div class="stat"><svg aria-hidden="true"><use href="#i-user"/></svg>Joined<b>9</b></div>
+        <div class="stat"><svg aria-hidden="true"><use href="#i-half"/></svg>Not Joined<b>1</b></div>
+        <button class="addtop" type="button" style="height:56px"><svg aria-hidden="true"><use href="#i-adduser"/></svg>Add Participant</button>
+      </div></section>
+
+      <section class="box"><h3>Game Controls</h3><div class="body">
+        <div class="duration"><svg aria-hidden="true"><use href="#i-clock"/></svg><div><small>Game Duration</small><strong>30:00</strong></div><button class="icon-btn" type="button" aria-label="Change the game duration"><svg aria-hidden="true"><use href="#i-edit"/></svg></button></div>
+        <button class="big-btn" type="button" disabled><svg aria-hidden="true"><use href="#i-play"/></svg>Start Game</button>
+        <button class="big-btn" type="button"><svg aria-hidden="true"><use href="#i-gear"/></svg><span>Next Game<br>(End Current)</span></button>
+        <button class="big-btn" type="button"><svg aria-hidden="true"><use href="#i-refresh"/></svg>Reset Session</button>
+      </div></section>
+      <svg class="laptop" viewBox="0 0 300 190" role="img" aria-label="A laptop with a bar chart and gears">
+<g aria-hidden="true"><defs><pattern id="ld" width="7" height="7" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.6" fill="#FF6A1F"/></pattern></defs>
+<rect x="0" y="20" width="300" height="170" fill="url(#ld)" opacity=".9"/>
+<g stroke="#111" stroke-width="6" stroke-linejoin="round"><path d="M40,160 L260,160 L284,186 L16,186 Z" fill="#FBF0D9"/><rect x="62" y="22" width="176" height="134" rx="8" fill="#FBF0D9"/><rect x="72" y="32" width="156" height="114" fill="#FFF8E6" stroke-width="3"/></g>
+<g fill="#FF6A1F" stroke="#111" stroke-width="4"><rect x="92" y="98" width="24" height="38"/><rect x="126" y="80" width="24" height="56"/><rect x="160" y="60" width="24" height="76"/><rect x="194" y="44" width="24" height="92"/></g>
+<g transform="translate(34 150) scale(.5)" stroke="#111" stroke-width="9" stroke-linejoin="round"><path d="M0,-52 L9,-52 L13,-40 L24,-46 L32,-38 L26,-27 L38,-22 L38,-11 L26,-8 L28,3 L19,10 L10,2 L0,9 L-10,2 L-19,10 L-28,3 L-26,-8 L-38,-11 L-38,-22 L-26,-27 L-32,-38 L-24,-46 L-13,-40 L-9,-52 Z" fill="#FF6A1F" transform="scale(1.1)"/><circle r="22" fill="#FBF0D9"/></g>
+<g transform="translate(272 130) scale(.5)" stroke="#111" stroke-width="9" stroke-linejoin="round"><circle r="34" fill="#FBF0D9"/><circle r="18" fill="#FF6A1F"/></g></g></svg>
+    </div>
+  </main>
+</div>
+</body>
+</html>

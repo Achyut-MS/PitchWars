@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Future Makers: game briefing and role reveal</title>
+<link rel="stylesheet" href="draft.css">
+<link rel="stylesheet" href="play.css">
+</head>
+<body class="play">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="i-crown" viewBox="0 0 32 32"><path d="M3,10 L10,17 L16,6 L22,17 L29,10 L26,26 H6 Z"/></symbol>
+<symbol id="i-chip" viewBox="0 0 32 32"><rect x="8" y="8" width="16" height="16" rx="2"/><path d="M12,3 V8 M20,3 V8 M12,24 V29 M20,24 V29 M3,12 H8 M3,20 H8 M24,12 H29 M24,20 H29" stroke="currentColor" stroke-width="3" fill="none"/><rect x="12" y="12" width="8" height="8" fill="var(--hole,#FBF0D9)"/></symbol>
+<symbol id="i-rupee" viewBox="0 0 32 32"><path d="M8,6 H25 M8,12 H25 M11,6 C23,6 23,19 11,19 H9 L23,30" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="square"/></symbol>
+<symbol id="i-mega" viewBox="0 0 32 32"><path d="M4,12 H10 L24,4 V28 L10,20 H4 Z"/><path d="M8,21 L10,29 H14 L12,22 Z"/></symbol>
+<symbol id="i-gear" viewBox="-26 -26 52 52"><path d="M-2.9,-16.2 L-2.5,-21.9 L2.5,-21.9 L2.9,-16.2 L9.5,-13.5 L13.7,-17.2 L17.2,-13.7 L13.5,-9.5 L16.2,-2.9 L21.9,-2.5 L21.9,2.5 L16.2,2.9 L13.5,9.5 L17.2,13.7 L13.7,17.2 L9.5,13.5 L2.9,16.2 L2.5,21.9 L-2.5,21.9 L-2.9,16.2 L-9.5,13.5 L-13.7,17.2 L-17.2,13.7 L-13.5,9.5 L-16.2,2.9 L-21.9,2.5 L-21.9,-2.5 L-16.2,-2.9 L-13.5,-9.5 L-17.2,-13.7 L-13.7,-17.2 L-9.5,-13.5 Z"/><circle r="8" fill="var(--hole,#FBF0D9)"/></symbol>
+<symbol id="i-users" viewBox="0 0 40 32"><circle cx="13" cy="9" r="6"/><path d="M1,30 C1,19 6,17 13,17 C20,17 25,19 25,30 Z"/><circle cx="29" cy="12" r="5"/><path d="M21,30 C21,22 25,20 29,20 C34,20 39,22 39,30 Z"/></symbol>
+<symbol id="i-bars" viewBox="0 0 32 32"><rect x="3" y="17" width="7" height="12"/><rect x="12.5" y="8" width="7" height="21"/><rect x="22" y="13" width="7" height="16"/></symbol>
+<symbol id="i-coins" viewBox="0 0 32 32"><ellipse cx="16" cy="8" rx="11" ry="4.5" fill="none" stroke="currentColor" stroke-width="3"/><path d="M5,8 V15 C5,18 10,20 16,20 C22,20 27,18 27,15 V8 M5,15 V22 C5,25 10,27 16,27 C22,27 27,25 27,22 V15" fill="none" stroke="currentColor" stroke-width="3"/></symbol>
+<symbol id="i-target" viewBox="0 0 48 48"><circle cx="22" cy="26" r="17" fill="none" stroke="#111" stroke-width="4"/><circle cx="22" cy="26" r="9" fill="none" stroke="#111" stroke-width="4"/><circle cx="22" cy="26" r="3" fill="#111"/><path d="M24,24 L40,8" stroke="#111" stroke-width="4" stroke-linecap="round"/><path d="M34,6 L42,6 L42,14 L38,12 L36,10 Z" fill="#111"/></symbol>
+<symbol id="i-docc" viewBox="0 0 32 32"><path d="M6,2 H20 L27,9 V30 H6 Z" fill="none" stroke="#111" stroke-width="3" stroke-linejoin="round"/><path d="M11,16 H22 M11,22 H22" stroke="#111" stroke-width="3" fill="none"/></symbol>
+</defs></svg>
+<div class="dots-tr" aria-hidden="true"></div>
+<div class="timer"><div class="pillwrap"><div class="pill" role="timer" aria-label="Time to next phase"><small>Time to next phase</small><b id="count">03:00</b></div></div></div>
+
+<div class="play-grid">
+  <div class="lcol">
+    <section class="tabbed has-dots" aria-labelledby="h-company"><h2 id="h-company">Your company</h2>
+      <div class="card2 company-card"><svg class="big-a" viewBox="0 0 118 100" role="img" aria-label="Company Alpha logo"><path d="M2,98 L48,2 H66 L112,98 H90 L81,76 H44 L35,98 Z M50,58 H74 L62,28 Z" fill="#FF6A1F" fill-rule="evenodd" stroke="#111" stroke-width="4" stroke-linejoin="round"/></svg><div><span class="words">Company</span><span class="name">Alpha</span><div class="motto">Ideas today,<br>impact tomorrow.</div></div></div></section>
+
+    <section class="tabbed has-dots" aria-labelledby="h-role"><h2 id="h-role">Your role</h2>
+      <div class="card2 role-card"><div class="head2"><svg class="chip" aria-hidden="true"><use href="#i-chip"/></svg><div class="code">CTO</div></div><div class="full">Chief Technology Officer</div><hr>
+        <p>Build and improve the product using available tools and resources. Make strategic technology decisions to stay ahead of the competition.</p></div></section>
+
+    <section class="tabbed" aria-labelledby="h-team"><h2 id="h-team">Your team</h2><span class="hdr-count"><svg class="" aria-hidden="true"><use href="#i-users"/></svg>5 / 5</span>
+      <div class="card2" style="padding: 8px 10px"><ul class="team-list"><li><svg class="" aria-hidden="true"><use href="#i-crown"/></svg><b>CEO</b><span>Aarav Sharma</span></li><li class="you"><svg class="" aria-hidden="true"><use href="#i-chip"/></svg><b>CTO</b><span>You</span></li><li><svg class="" aria-hidden="true"><use href="#i-rupee"/></svg><b>CFO</b><span>Diya Nair</span></li><li><svg class="" aria-hidden="true"><use href="#i-mega"/></svg><b>CMO</b><span>Rohan Mehta</span></li><li><svg class="" aria-hidden="true"><use href="#i-gear"/></svg><b>COO</b><span>Sneha Iyer</span></li></ul></div></section>
+  </div>
+
+  <main class="main-panel">
+    <h1 class="tab" style="margin:0">Game Briefing</h1>
+    <div class="sec-h"><span class="ico-c"><svg aria-hidden="true"><use href="#i-target"/></svg></span><h3>Your challenge</h3></div>
+    <p class="challenge">You are a startup team competing against another company to build the best solution for the given problem. Use your role skills, work with your team, <b>earn coins</b> through challenges, <b>purchase upgrades</b>, and <b>outperform</b> the other company.</p>
+    <svg class="art-b" viewBox="0 0 330 330" aria-hidden="true"><defs><pattern id="bd" width="7" height="7" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.6" fill="#FF6A1F"/></pattern></defs>
+<rect x="150" y="60" width="180" height="250" fill="url(#bd)" opacity=".8"/>
+<g stroke="#111" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" transform="translate(112 112)">
+<g><line x1="-62.0" y1="-26.6" x2="-80.8" y2="-33.4"/><line x1="-37.9" y1="-58.1" x2="-49.3" y2="-74.4"/><line x1="0.0" y1="-70.0" x2="0.0" y2="-90.0"/><line x1="37.9" y1="-58.1" x2="49.3" y2="-74.4"/><line x1="62.0" y1="-26.6" x2="80.8" y2="-33.4"/></g>
+<path d="M-30,48 C-70,14 -58,-52 0,-60 C58,-52 70,14 30,48 L30,70 L-30,70 Z" fill="#FBF0D9"/><path d="M-14,70 L-14,18 L0,36 L14,18 L14,70" fill="none"/><rect x="-24" y="70" width="48" height="14" rx="5" fill="#FBF0D9"/><rect x="-16" y="84" width="32" height="12" rx="5" fill="#FBF0D9"/></g>
+<g transform="translate(244 188)" stroke="#111" stroke-width="6" stroke-linejoin="round"><path d="M-9.0,-46.1 L-7.6,-61.5 L7.6,-61.5 L9.0,-46.1 L19.9,-42.6 L30.1,-54.2 L42.3,-45.3 L34.4,-32.1 L41.1,-22.8 L56.2,-26.2 L60.9,-11.8 L46.6,-5.7 L46.6,5.7 L60.9,11.8 L56.2,26.2 L41.1,22.8 L34.4,32.1 L42.3,45.3 L30.1,54.2 L19.9,42.6 L9.0,46.1 L7.6,61.5 L-7.6,61.5 L-9.0,46.1 L-19.9,42.6 L-30.1,54.2 L-42.3,45.3 L-34.4,32.1 L-41.1,22.8 L-56.2,26.2 L-60.9,11.8 L-46.6,5.7 L-46.6,-5.7 L-60.9,-11.8 L-56.2,-26.2 L-41.1,-22.8 L-34.4,-32.1 L-42.3,-45.3 L-30.1,-54.2 L-19.9,-42.6 Z" fill="#FF6A1F" transform="scale(.95)"/><circle r="26" fill="#FBF0D9"/><circle r="10" fill="#FF6A1F"/></g>
+<g transform="translate(290 262) scale(.42)" stroke="#111" stroke-width="9" stroke-linejoin="round"><path d="M-9.0,-46.1 L-7.6,-61.5 L7.6,-61.5 L9.0,-46.1 L19.9,-42.6 L30.1,-54.2 L42.3,-45.3 L34.4,-32.1 L41.1,-22.8 L56.2,-26.2 L60.9,-11.8 L46.6,-5.7 L46.6,5.7 L60.9,11.8 L56.2,26.2 L41.1,22.8 L34.4,32.1 L42.3,45.3 L30.1,54.2 L19.9,42.6 L9.0,46.1 L7.6,61.5 L-7.6,61.5 L-9.0,46.1 L-19.9,42.6 L-30.1,54.2 L-42.3,45.3 L-34.4,32.1 L-41.1,22.8 L-56.2,26.2 L-60.9,11.8 L-46.6,5.7 L-46.6,-5.7 L-60.9,-11.8 L-56.2,-26.2 L-41.1,-22.8 L-34.4,-32.1 L-42.3,-45.3 L-30.1,-54.2 L-19.9,-42.6 Z" fill="#FBF0D9"/><circle r="26" fill="#FBF0D9"/></g>
+<g transform="translate(188 280) scale(.55)" stroke="#111" stroke-width="8" stroke-linejoin="round"><path d="M-9.0,-46.1 L-7.6,-61.5 L7.6,-61.5 L9.0,-46.1 L19.9,-42.6 L30.1,-54.2 L42.3,-45.3 L34.4,-32.1 L41.1,-22.8 L56.2,-26.2 L60.9,-11.8 L46.6,-5.7 L46.6,5.7 L60.9,11.8 L56.2,26.2 L41.1,22.8 L34.4,32.1 L42.3,45.3 L30.1,54.2 L19.9,42.6 L9.0,46.1 L7.6,61.5 L-7.6,61.5 L-9.0,46.1 L-19.9,42.6 L-30.1,54.2 L-42.3,45.3 L-34.4,32.1 L-41.1,22.8 L-56.2,26.2 L-60.9,11.8 L-46.6,5.7 L-46.6,-5.7 L-60.9,-11.8 L-56.2,-26.2 L-41.1,-22.8 L-34.4,-32.1 L-42.3,-45.3 L-30.1,-54.2 L-19.9,-42.6 Z" fill="#FBF0D9"/><circle r="26" fill="#FBF0D9"/></g>
+<g stroke="#111" stroke-width="5" fill="#FF6A1F"><rect x="30" y="268" width="26" height="40"/><rect x="62" y="248" width="26" height="60"/><rect x="94" y="222" width="26" height="86"/><rect x="126" y="196" width="26" height="112"/></g><path d="M20,310 H160" stroke="#111" stroke-width="5"/></svg>
+    <div class="sec-h doc"><span class="ico-c"><svg aria-hidden="true" width="30" height="34"><use href="#i-docc"/></svg></span><h3>Problem statement</h3></div>
+    <p class="problem"><b>Food waste.</b> Homes, canteens and shops throw away huge amounts of good food every day.</p>
+    <div class="infos"><article class="info-card"><header><svg aria-hidden="true" width="36" height="36"><use href="#i-target"/></svg><h4>Game Format</h4></header><p>Two companies (5 members each) compete head-to-head in a 30 minute simulation.</p></article><article class="info-card"><header><svg class="" aria-hidden="true"><use href="#i-coins"/></svg><h4>Your Goal</h4></header><p>Build the best product, grow your sales, and outperform the other company.</p></article><article class="info-card"><header><svg class="" aria-hidden="true"><use href="#i-bars"/></svg><h4>How to Win</h4></header><p>Take smart decisions, use your role strengths, complete challenges and react to market events.</p></article><article class="info-card"><header><svg class="" aria-hidden="true"><use href="#i-users"/></svg><h4>Work Together</h4></header><p>Communicate with your team, plan your strategy and make the most of your resources.</p></article></div>
+    <div class="cta-row"><div class="dots" aria-hidden="true"></div><button class="cta" type="button">Continue <svg class="arrow" viewBox="0 0 40 24" aria-hidden="true"><path d="M2,12 H34 M24,3 L35,12 L24,21" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="square"/></svg></button></div>
+  </main>
+</div>
+<script>
+  // Draft only: a live countdown, so the timer pill can be seen working. The real game takes the time from the server.
+  let s = 180; const el = document.getElementById('count'), pill = el.closest('.pill');
+  setInterval(() => { s = s > 0 ? s - 1 : 180; el.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); pill.classList.toggle('red', s <= 10); }, 1000);
+</script>
+</body>
+</html>
