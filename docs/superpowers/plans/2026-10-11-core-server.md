@@ -6,7 +6,7 @@
 
 **Architecture:** One Node.js program on the Pi owns all game state in one SQLite file. Phase and timer state is **derived from a start time**, never stored as a countdown, so every browser sees the same clock and a restart resumes where it left off. Browsers talk to the server over a WebSocket and receive a tick every second. Pure logic (roster, lobby, phases) lives in small modules with no network code, so it is tested without a server.
 
-**Tech Stack:** Node.js 20+ (ES modules), `ws`, `better-sqlite3`, the built-in `node:test` runner. No frameworks, no CDN, fully offline.
+**Tech Stack:** Node.js 22+ (ES modules), `ws`, `better-sqlite3`, the built-in `node:test` runner. No frameworks, no CDN, fully offline.
 
 **Spec:** `Future_Makers_Round_2_Startup_Showdown_Master_Guide.md` (Sections 0, 0.1, 2, 4, 6, 7, 10, 11) in the project root. Read it first.
 
@@ -84,7 +84,7 @@ cat > package.json <<'EOF'
     "test": "node --test test/",
     "start": "node src/index.js"
   },
-  "engines": { "node": ">=20" }
+  "engines": { "node": ">=22" }
 }
 EOF
 printf 'node_modules/\ndata/\n.superpowers/\n' > .gitignore
