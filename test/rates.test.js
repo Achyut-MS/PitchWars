@@ -125,3 +125,14 @@ test('rates are never negative or NaN', () => {
   const r2 = effectiveRates(h.ctx, h.game(), 'A', 810_000);
   for (const v of Object.values(r2)) assert.ok(Number.isFinite(v) && v >= 0);
 });
+
+test('Ad Blackout switches off brand, tagline and ad slot; target user still counts', () => {
+  const h = toCompetition(makeRunning());
+  give(h, 'A', ['M01-L', 'M02', 'M03', 'M04-E', 'O01', 'O02', 'O03']);
+  attack(h, 'A', 'ad_blackout', 800_000, 840_000);
+  const at = (t) => effectiveRates(h.ctx, h.game(), 'A', t);
+  near(at(799_999).CMO, 31);
+  near(at(800_000).CMO, 16.5); near(at(839_999).CMO, 16.5);
+  near(at(840_000).CMO, 31); near(at(840_001).CMO, 31);
+  near(at(810_000).COO, 27); near(at(810_000).CTO, 0);
+});

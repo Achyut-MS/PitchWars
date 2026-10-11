@@ -23,7 +23,11 @@ export function effectiveRates(ctx, game, company, t, { attacks = true } = {}) {
   if (ev && ev.salesMult) mult *= ev.salesMult;
   const base = roleRates(ctx.data, ids, mods);
   const CTO = clean(base.CTO * mult);
-  const CMO = clean(base.CMO * mult);
+  // Ad Blackout also switches off the brand name (+2) and tagline (+2).
+  const brandOff = mods.adOff
+    ? 2 * ids.filter((id) => ['M02', 'M03'].includes(ctx.data.item(id)?.family)).length
+    : 0;
+  const CMO = clean((base.CMO - brandOff) * mult);
   const COO = clean(base.COO * mult);
   return { CTO, CMO, COO, total: CTO + CMO + COO };
 }
