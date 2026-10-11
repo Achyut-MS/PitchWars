@@ -35,6 +35,14 @@ CREATE TABLE IF NOT EXISTS company_state (
   picked_at   INTEGER,
   pick_source TEXT,
   wallet      INTEGER NOT NULL DEFAULT 1000,
+  last_tick_at   INTEGER,
+  frac           REAL NOT NULL DEFAULT 0,
+  mini_coins     REAL NOT NULL DEFAULT 0,
+  attack_coins   REAL NOT NULL DEFAULT 0,
+  cto_coins      REAL NOT NULL DEFAULT 0,
+  cmo_coins      REAL NOT NULL DEFAULT 0,
+  coo_coins      REAL NOT NULL DEFAULT 0,
+  last_sample_at INTEGER,
   PRIMARY KEY (game_id, company)
 );
 CREATE TABLE IF NOT EXISTS votes (
@@ -79,11 +87,95 @@ CREATE TABLE IF NOT EXISTS phase_done (
   phase   TEXT NOT NULL,
   PRIMARY KEY (game_id, phase)
 );
+CREATE TABLE IF NOT EXISTS attacks (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  game_id     INTEGER NOT NULL,
+  attacker    TEXT NOT NULL,
+  victim      TEXT NOT NULL,
+  key         TEXT NOT NULL,
+  cost        INTEGER NOT NULL,
+  launched_by TEXT NOT NULL,
+  launched_at INTEGER NOT NULL,
+  end_at      INTEGER NOT NULL,
+  blocked     INTEGER NOT NULL DEFAULT 0,
+  cover       TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS notices (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  game_id INTEGER NOT NULL,
+  company TEXT NOT NULL,
+  role    TEXT,
+  text    TEXT NOT NULL,
+  ts      INTEGER NOT NULL,
+  until   INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS market_events (
+  game_id    INTEGER PRIMARY KEY,
+  key        TEXT NOT NULL,
+  started_at INTEGER NOT NULL,
+  ends_at    INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS injections (
+  game_id INTEGER PRIMARY KEY,
+  company TEXT NOT NULL,
+  coins   INTEGER NOT NULL,
+  ts      INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS shield_use (
+  game_id INTEGER NOT NULL,
+  company TEXT NOT NULL,
+  used_at INTEGER NOT NULL,
+  PRIMARY KEY (game_id, company)
+);
+CREATE TABLE IF NOT EXISTS samples (
+  game_id      INTEGER NOT NULL,
+  ts           INTEGER NOT NULL,
+  company      TEXT NOT NULL,
+  wallet       INTEGER NOT NULL,
+  cto_rate     REAL NOT NULL,
+  cmo_rate     REAL NOT NULL,
+  coo_rate     REAL NOT NULL,
+  cto_coins    REAL NOT NULL,
+  cmo_coins    REAL NOT NULL,
+  coo_coins    REAL NOT NULL,
+  mini_coins   REAL NOT NULL,
+  attack_coins REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS samples_by_game ON samples (game_id, ts, company);
+CREATE TABLE IF NOT EXISTS hints (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  game_id INTEGER NOT NULL,
+  company TEXT NOT NULL,
+  role    TEXT NOT NULL,
+  ts      INTEGER NOT NULL,
+  text    TEXT NOT NULL,
+  acted   INTEGER
+);
 `;
+
+// Columns added to company_state in schema v3; used to upgrade a v2 file.
+const V3_COMPANY_STATE_COLUMNS = [
+  ['last_tick_at', 'INTEGER'],
+  ['frac', 'REAL NOT NULL DEFAULT 0'],
+  ['mini_coins', 'REAL NOT NULL DEFAULT 0'],
+  ['attack_coins', 'REAL NOT NULL DEFAULT 0'],
+  ['cto_coins', 'REAL NOT NULL DEFAULT 0'],
+  ['cmo_coins', 'REAL NOT NULL DEFAULT 0'],
+  ['coo_coins', 'REAL NOT NULL DEFAULT 0'],
+  ['last_sample_at', 'INTEGER'],
+];
+
+function migrate(db) {
+  const have = new Set(db.prepare('PRAGMA table_info(company_state)').all().map((c) => c.name));
+  for (const [name, type] of V3_COMPANY_STATE_COLUMNS) {
+    if (!have.has(name)) db.exec(`ALTER TABLE company_state ADD COLUMN ${name} ${type}`);
+  }
+}
 
 export function openDb(file = ':memory:') {
   const db = new Database(file);
   db.pragma('journal_mode = WAL');
   db.exec(SCHEMA);
+  migrate(db);
   return db;
 }

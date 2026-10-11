@@ -28,3 +28,12 @@ export function endIdeationEarly(game, nowMs) {
   if (p.phase !== 'ideation') throw new Error('not in ideation');
   return { ...game, ideationSavedSec: (game.ideationSavedSec || 0) + p.remainingSec };
 }
+
+export function phaseWindow(game, name) {
+  let t = game.startedAt;
+  for (const [n, sec] of timeline(game)) {
+    if (n === name) return { start: t, end: t + sec * 1000 };
+    t += sec * 1000;
+  }
+  throw new Error(`unknown phase ${name}`);
+}
