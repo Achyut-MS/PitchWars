@@ -135,7 +135,7 @@ test('a double click on approve charges once', () => {
   const h = toShop(makeRunning());
   const id = requestItem(h.ctx, h.game(), h.seat.A.CMO, 'M01-M');
   cfoDecide(h.ctx, h.game(), h.seat.A.CFO, id, true);
-  assert.throws(() => cfoDecide(h.ctx, h.game(), h.seat.A.CFO, id, true), /oldest request first/);
+  assert.throws(() => cfoDecide(h.ctx, h.game(), h.seat.A.CFO, id, true), /already decided/);
   assert.equal(wallet(h), 900);
   assert.equal(h.db.prepare('SELECT charged FROM owned WHERE company=\'A\' AND family=\'M01\'').get().charged, 100);
 });
@@ -177,4 +177,18 @@ test('the summary card only shows the asked company', () => {
   assert.deepEqual(b.owned, []);
   assert.equal(b.wallet, 1000);
   assert.equal(b.idea.id, 'S1');
+});
+
+test('a late shop hook leaves Competition-phase requests alone; competition hook takes only its own', () => {
+  const h = toShop(makeRunning());
+  const shopReq = requestItem(h.ctx, h.game(), h.seat.A.CMO, 'M01-N');
+  atSec(h, 805); // competition has begun
+  const compReq = requestItem(h.ctx, h.game(), h.seat.A.COO, 'O01');
+  autoRejectAll(h.ctx, h.game(), Math.random, 'shop');
+  assert.equal(status(h, shopReq), 'rejected');
+  assert.equal(status(h, compReq), 'pending');
+  autoRejectAll(h.ctx, h.game(), Math.random, 'shop');
+  assert.equal(h.db.prepare("SELECT COUNT(*) AS n FROM events WHERE type='shop_auto_reject'").get().n, 1);
+  autoRejectAll(h.ctx, h.game(), Math.random, 'competition');
+  assert.equal(status(h, compReq), 'rejected');
 });

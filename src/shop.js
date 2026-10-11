@@ -51,7 +51,7 @@ function validate(ctx, game, company, item, choice) {
 }
 
 function insert(ctx, game, p, item, choice, status, recommended, phase) {
-  return ctx.db.transaction(() => insertRow(ctx, game, p, item, choice, status, recommended, phase))();
+  return ctx.db.transaction(() => insertRow(ctx, game, p, item, choice, status, recommended, phase)).immediate();
 }
 
 function insertRow(ctx, game, p, item, choice, status, recommended, phase) {
@@ -117,7 +117,7 @@ export function ceoDecide(ctx, game, admissionId, requestId, approve) {
         .run(ctx.now(), admissionId, r.id);
     }
     logEvent(ctx.db, { ts: ctx.now(), gameId: game.id, admissionId, type: 'ceo_decision', payload: { requestId: r.id, approve } });
-  })();
+  }).immediate();
 }
 
 export function cfoDecide(ctx, game, admissionId, requestId, approve) {
@@ -129,6 +129,7 @@ export function cfoDecide(ctx, game, admissionId, requestId, approve) {
   // or a stale request cannot charge twice or break the family rule.
   ctx.db.transaction(() => {
     const r = ownRequest(ctx, game, p.company, requestId);
+    if (r.status === 'approved' || r.status === 'rejected') throw new Error('already decided');
     const head = queueHead(ctx.db, game.id, p.company);
     if (!head || head.id !== r.id) throw new Error('decide the oldest request first');
     const wallet = companyState(ctx.db, game.id, p.company).wallet;
@@ -154,12 +155,13 @@ export function cfoDecide(ctx, game, admissionId, requestId, approve) {
     }
     logEvent(ctx.db, { ts: ctx.now(), gameId: game.id, admissionId, type: 'cfo_decision',
       payload: { requestId: r.id, itemId: item.id, approve, charged: charge, walletBefore: wallet, walletAfter: wallet - charge } });
-  })();
+  }).immediate();
 }
 
-export function autoRejectAll(ctx, game) {
+// Rejects open requests made in the phase that is ending (all open ones when no phase is given).
+export function autoRejectAll(ctx, game, _rng, phase) {
   ctx.db.transaction(() => {
-    const open = ctx.db.prepare("SELECT id, company, item_id FROM requests WHERE game_id=? AND status IN ('awaiting_ceo','pending')").all(game.id);
+    const open = ctx.db.prepare("SELECT id, company, item_id FROM requests WHERE game_id=? AND status IN ('awaiting_ceo','pending') AND (? IS NULL OR phase = ?)").all(game.id, phase ?? null, phase ?? null);
     for (const r of open) {
       ctx.db.prepare("UPDATE requests SET status='rejected', decided_at=?, reject_reason='auto' WHERE id=?").run(ctx.now(), r.id);
       logEvent(ctx.db, { ts: ctx.now(), gameId: game.id, type: 'shop_auto_reject', payload: { requestId: r.id, company: r.company, itemId: r.item_id } });

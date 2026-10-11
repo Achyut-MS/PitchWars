@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeRunning, atSec } from './helpers.js';
-import { runDirector } from '../src/director.js';
+import { runDirector, stuckPhases } from '../src/director.js';
 
 test('a hook runs when its phase has ended, and only once', () => {
   const h = makeRunning();
@@ -101,4 +101,25 @@ test('a throwing hook leaves no phase_done row and no partial writes', () => {
   try { atSec(h, 181); runDirector(h.ctx, hooks); } finally { console.error = orig; }
   assert.deepEqual(done(h), []);
   assert.equal(h.db.prepare("SELECT idea_id FROM company_state WHERE game_id = ? AND company = 'A'").get(h.gameId).idea_id, null);
+});
+
+test('a hook that keeps throwing writes one director_stuck event and blocks later phases', () => {
+  const h = makeRunning();
+  const calls = [];
+  let fail = true;
+  const hooks = { briefing: () => { if (fail) throw new Error('nope'); calls.push('briefing'); }, ideation: () => calls.push('ideation') };
+  const quiet = console.error; console.error = () => {};
+  try {
+    atSec(h, 400);
+    for (let i = 0; i < 5; i++) runDirector(h.ctx, hooks);
+  } finally { console.error = quiet; }
+  const n = () => h.db.prepare("SELECT COUNT(*) AS n FROM events WHERE type='director_stuck'").get().n;
+  assert.equal(n(), 1);
+  assert.deepEqual(stuckPhases(h.db, h.gameId), ['briefing']);
+  assert.deepEqual(calls, []);
+  fail = false;
+  runDirector(h.ctx, hooks);
+  assert.deepEqual(calls, ['briefing', 'ideation']);
+  assert.equal(n(), 1);
+  assert.deepEqual(stuckPhases(h.db, h.gameId), []);
 });
