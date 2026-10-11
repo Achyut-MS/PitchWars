@@ -59,7 +59,7 @@ export function launchAttack(ctx, game, admissionId, key, rng = Math.random) {
     if (now < attackCooldownUntil(db, game.id, p.company)) throw new Error('attack on cooldown');
 
     const blocked = hasShield(db, game.id, victim);
-    const duration = a.kind === 'tax' || blocked ? 0 : 30_000 + Math.floor(rng() * 15_001);
+    const duration = a.kind === 'tax' || blocked ? 0 : 30_000 + Math.floor(Math.min(Math.max(Number(rng()) || 0, 0), 0.999999) * 15_001);
     const endsAt = now + duration;
 
     db.prepare('UPDATE company_state SET wallet = wallet - ? WHERE game_id=? AND company=?').run(a.cost, game.id, p.company);

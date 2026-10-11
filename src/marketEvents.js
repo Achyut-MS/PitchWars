@@ -44,6 +44,8 @@ export function injectCoins(ctx, game, company, coins) {
   }
   ctx.db.transaction(() => {
     const now = ctx.now();
+    if (phaseAt(game, now).phase !== 'competition') throw new Error('coins can only be injected during the competition');
+    if (!ctx.db.prepare('SELECT 1 FROM company_state WHERE game_id=? AND company=?').get(game.id, company)) throw new Error('unknown company');
     const info = ctx.db.prepare('INSERT OR IGNORE INTO injections (game_id, company, coins, ts) VALUES (?, ?, ?, ?)').run(game.id, company, coins, now);
     if (info.changes === 0) throw new Error('coins were already injected in this game');
     ctx.db.prepare('UPDATE company_state SET wallet = wallet + ? WHERE game_id=? AND company=?').run(coins, game.id, company);

@@ -99,3 +99,54 @@ test('only the injected company is told, with a market-style reason and no attac
   assert.equal(b.length, 0);
   assert.doesNotMatch(a[0].text, /attack|rival/i);
 });
+
+import { requestItem, cfoDecide } from '../src/shop.js';
+import { viewFor } from '../src/views.js';
+
+const queuePrice = (h) => viewFor(h.ctx, h.seat.A.CFO).shop.queue[0].price;
+const walletA = (h) => companyState(h.db, h.gameId, 'A').wallet;
+
+test('the queue price is what approval would charge now, sale or not, and equals the wallet delta', () => {
+  const h = toCompetition(makeRunning());
+  requestItem(h.ctx, h.game(), h.seat.A.CMO, 'M01-L');
+  assert.equal(queuePrice(h), 150);
+  triggerMarketEvent(h.ctx, h.game(), 'shop_sale');
+  h.clock.t = 850_000;
+  assert.equal(queuePrice(h), 113);
+  const before = walletA(h);
+  cfoDecide(h.ctx, h.game(), h.seat.A.CFO, 1, true);
+  assert.equal(before - walletA(h), 113);
+});
+
+test('an upgrade in the queue shows the differential', () => {
+  const h = toCompetition(makeRunning());
+  give(h, 'A', ['M01-N']);
+  requestItem(h.ctx, h.game(), h.seat.A.CMO, 'M01-L');
+  assert.equal(queuePrice(h), 100);
+  triggerMarketEvent(h.ctx, h.game(), 'shop_sale');
+  h.clock.t = 850_000;
+  assert.equal(queuePrice(h), 75);
+  const before = walletA(h);
+  cfoDecide(h.ctx, h.game(), h.seat.A.CFO, 1, true);
+  assert.equal(before - walletA(h), 75);
+});
+
+test('injection outside the competition or into a company without a wallet row consumes nothing', () => {
+  const h = makeRunning();
+  atSec(h, 100);
+  assert.throws(() => injectCoins(h.ctx, h.game(), 'A', 100), /during the competition/);
+  toCompetition(h);
+  h.db.prepare("DELETE FROM company_state WHERE game_id=? AND company='B'").run(h.gameId);
+  assert.throws(() => injectCoins(h.ctx, h.game(), 'B', 100), /unknown company/);
+  assert.equal(h.db.prepare('SELECT COUNT(*) AS n FROM injections').get().n, 0);
+  injectCoins(h.ctx, h.game(), 'A', 100);
+});
+
+test('a bad rng cannot push an attack outside its 30 to 45 second window', async () => {
+  const { launchAttack } = await import('../src/attacks.js');
+  for (const bad of [5, -3, NaN]) {
+    const h = toCompetition(makeRunning());
+    const r = launchAttack(h.ctx, h.game(), h.seat.A.CEO, 'price_squeeze', () => bad);
+    assert.ok(r.endsAt >= 830_000 && r.endsAt <= 845_000, String(bad));
+  }
+});

@@ -2,7 +2,7 @@ import { activeGame } from './persist.js';
 import { phaseAt } from './phases.js';
 import { companyState, ideaOf, ownedRows, prep } from './state.js';
 import { tally } from './ideation.js';
-import { applicable, blockFromLast, isShopOpen, summaryCard, priceWithSale } from './shop.js';
+import { applicable, blockFromLast, isShopOpen, summaryCard, priceWithSale, chargeFor } from './shop.js';
 import { saleMultiplier } from './marketEvents.js';
 import { itemLabel } from './labels.js';
 import { stuckPhases } from './director.js';
@@ -17,11 +17,11 @@ function ownedList(ctx, game, company, idea) {
   }));
 }
 
-function requestView(ctx, idea, r, headId) {
+function requestView(ctx, game, idea, r, headId) {
   const item = ctx.data.item(r.item_id);
   const by = prep(ctx.db, 'SELECT name FROM participants WHERE admission_id=?').get(r.requested_by);
   return {
-    id: r.id, itemId: r.item_id, label: itemLabel(item, idea, r.choice), price: r.price,
+    id: r.id, itemId: r.item_id, label: itemLabel(item, idea, r.choice), price: chargeFor(ctx, game, r.company, item),
     by: by ? by.name : r.requested_by, recommended: !!r.recommended, head: r.id === headId,
   };
 }
@@ -36,8 +36,8 @@ function companyShop(ctx, game, company, idea, phase, cache) {
   const pendingRows = prep(db, "SELECT * FROM requests WHERE game_id=? AND company=? AND status='pending' ORDER BY id").all(game.id, company);
   const waitingRows = prep(db, "SELECT * FROM requests WHERE game_id=? AND company=? AND status='awaiting_ceo' ORDER BY id").all(game.id, company);
   const headId = pendingRows.length ? pendingRows[0].id : null;
-  const queue = pendingRows.map((r) => requestView(ctx, idea, r, headId));
-  const awaitingCeo = waitingRows.map((r) => requestView(ctx, idea, r, null));
+  const queue = pendingRows.map((r) => requestView(ctx, game, idea, r, headId));
+  const awaitingCeo = waitingRows.map((r) => requestView(ctx, game, idea, r, null));
   let catalog = [];
   if (idea) {
     const owned = new Map(prep(db, 'SELECT family, item_id FROM owned WHERE game_id=? AND company=?').all(game.id, company).map((o) => [o.family, o.item_id]));
