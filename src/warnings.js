@@ -25,12 +25,21 @@ export const decisionsOpenAt = (game, t) => {
   return phase === 'shop' || phase === 'competition';
 };
 
+const NEXT_AT_SEC = { '5min': 120, '2min': 30, '30s': 10, last10: 0 };
+export const WARNING_TEXTS = new Set();
 const TEXT = {
   '5min': '5 minutes left.',
   '2min': '2 minutes left.',
   '30s': '30 seconds left. The shop is now closed for new requests.',
   last10: 'Last 10 seconds!',
 };
+for (const v of Object.values(TEXT)) WARNING_TEXTS.add(v);
+
+// Keeps only the newest countdown warning among the notices (others pass through).
+export function newestWarningOnly(notices) {
+  const last = notices.map((n) => WARNING_TEXTS.has(n.text)).lastIndexOf(true);
+  return notices.filter((n, i) => !WARNING_TEXTS.has(n.text) || i === last);
+}
 
 // Stores the CURRENT warning once per game (unique key, same transaction as the
 // notices). A server that missed earlier marks never replays them: only the
@@ -40,7 +49,9 @@ export function fireWarnings(ctx, game) {
   const clock = phaseAt(game, t);
   const w = warningFor(clock);
   if (!w) return false;
-  const until = phaseWindow(game, 'competition').end;
+  const end = phaseWindow(game, 'competition').end;
+  // Visible only until the next warning would fire (or the end).
+  const until = end - NEXT_AT_SEC[w] * 1000;
   return ctx.db.transaction(() => {
     const info = ctx.db.prepare('INSERT OR IGNORE INTO warnings_sent (game_id, warning, ts) VALUES (?, ?, ?)').run(game.id, w, t);
     if (!info.changes) return false;

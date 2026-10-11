@@ -3,7 +3,7 @@ import { phaseAt } from './phases.js';
 import { companyState, ideaOf, ownedRows, prep } from './state.js';
 import { tally } from './ideation.js';
 import { applicable, blockFromLast, summaryCard, priceWithSale, chargeFor } from './shop.js';
-import { shopOpenAt, warningFor } from './warnings.js';
+import { shopOpenAt, warningFor, newestWarningOnly } from './warnings.js';
 import { saleMultiplier } from './marketEvents.js';
 import { itemLabel } from './labels.js';
 import { stuckPhases } from './director.js';
@@ -108,7 +108,7 @@ function companyCompetition(ctx, game, company, t, cache) {
 function competitionView(ctx, game, p, clock, cache) {
   const t = ctx.now();
   const shared = companyCompetition(ctx, game, p.company, t, cache);
-  const notices = shared.notices.filter((n) => n.role == null || n.role === p.role).map((n) => n.text);
+  const notices = newestWarningOnly(shared.notices.filter((n) => n.role == null || n.role === p.role)).map((n) => n.text);
   const hint = ['CTO', 'CMO', 'COO'].includes(p.role) ? latestHint(ctx.db, game.id, p.company, p.role, t) : null;
   let shield = null;
   if (p.role === 'COO') {

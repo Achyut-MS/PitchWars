@@ -94,3 +94,25 @@ test('no warning notices outside the competition', () => {
   assert.equal(fireWarnings(h.ctx, h.game()), false);
   assert.equal(notices(h).length, 0);
 });
+
+test('a warning is visible only until the next one; the view shows just the newest', () => {
+  const h = toCompetition(makeRunning());
+  const end = 800 + 960;
+  const seen = () => viewFor(h.ctx, h.seat.A.CMO).competition.notices.filter((x) => /left|Last 10/.test(x));
+  for (const left of [300, 120, 30, 10]) { atSec(h, end - left); fireWarnings(h.ctx, h.game()); }
+  atSec(h, end - 20);
+  assert.deepEqual(seen(), ['30 seconds left. The shop is now closed for new requests.']);
+  atSec(h, end - 5);
+  assert.deepEqual(seen(), ['Last 10 seconds!']);
+  atSec(h, end - 270);
+  assert.deepEqual(seen(), ['5 minutes left.']);
+});
+
+test('after a gap only the current warning is stored and visible', () => {
+  const h = toCompetition(makeRunning());
+  atSec(h, 800 + 960 - 100);
+  fireWarnings(h.ctx, h.game());
+  fireWarnings(h.ctx, h.game());
+  assert.equal(h.db.prepare('SELECT COUNT(*) n FROM warnings_sent').get().n, 1);
+  assert.deepEqual(viewFor(h.ctx, h.seat.B.CTO).competition.notices, ['2 minutes left.']);
+});
