@@ -86,3 +86,38 @@ test('malformed messages do not crash the server', async () => {
   assert.equal((await ask(ws, { type: 'login', admissionId: 'S0' })).type, 'welcome');
   await close(app, ws);
 });
+
+test('non-string credentials get bad_message and the server keeps running', async () => {
+  const { app, url } = await boot();
+  const ws = await connect(url);
+  for (const m of [
+    { type: 'login', admissionId: 123 },
+    { type: 'login', admissionId: null },
+    { type: 'login' },
+    { type: 'organizer', password: 5 },
+    { type: 'organizer', password: null },
+    null,
+    [],
+  ]) {
+    assert.deepEqual(await ask(ws, m), { type: 'error', error: 'bad_message' });
+  }
+  assert.equal((await ask(ws, { type: 'login', admissionId: 'S0' })).type, 'welcome');
+  await close(app, ws);
+});
+
+test('an oversized message drops only that client; others still get ticks', async () => {
+  const { db, app, url } = await boot(() => 2000);
+  seatAll(db);
+  startGame(db, 1, 1000);
+  const good = await connect(url);
+  assert.equal((await ask(good, { type: 'login', admissionId: 'S0' })).view, 'game');
+  const bad = await connect(url);
+  const closed = new Promise((r) => bad.once('close', r));
+  bad.on('error', () => {});
+  bad.send('x'.repeat(10000));
+  await closed;
+  const t = next(good);
+  app.tickAll();
+  assert.equal((await t).type, 'tick');
+  await close(app, good, bad);
+});
