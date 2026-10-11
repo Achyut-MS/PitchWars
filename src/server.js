@@ -1,5 +1,9 @@
 import http from 'node:http';
-import { fireWarnings } from './warnings.js';
+import { fireWarnings, warningFor } from './warnings.js';
+import { launchAttack } from './attacks.js';
+import { triggerMarketEvent, injectCoins } from './marketEvents.js';
+import { tickEconomy } from './economy.js';
+import { evaluateHints } from './hints.js';
 import { WebSocketServer } from 'ws';
 import { participantLogin, organizerLogin } from './auth.js';
 import { activeGame } from './persist.js';
@@ -127,6 +131,19 @@ export function createApp({
       endIdeationNow(ctx, g);
       logAct('end_ideation_early', {}, g.id);
     },
+    market_event: (m) => {
+      const g = needGame();
+      const key = str(m.key);
+      triggerMarketEvent(ctx, g, key);
+      logAct('market_event', { key }, g.id);
+    },
+    inject: (m) => {
+      const g = needGame();
+      const company = str(m.company);
+      const coins = int(m.coins);
+      injectCoins(ctx, g, company, coins);
+      logAct('inject', { company, coins }, g.id);
+    },
   };
   const participantActions = {
     vote: (id, m, g) => castVote(ctx, g, id, str(m.ideaId)),
@@ -135,6 +152,7 @@ export function createApp({
     recommend: (id, m, g) => recommendItem(ctx, g, id, str(m.itemId), optStr(m.choice)),
     ceo_decide: (id, m, g) => ceoDecide(ctx, g, id, int(m.requestId), bool(m.approve)),
     cfo_decide: (id, m, g) => cfoDecide(ctx, g, id, int(m.requestId), bool(m.approve)),
+    attack: (id, m, g) => launchAttack(ctx, g, id, str(m.key)),
   };
 
   // Plain Errors thrown by the game rules carry player-facing text; anything else
@@ -217,7 +235,9 @@ export function createApp({
         if (!game) throw new Error('no game is running');
         const p = getStatus.get(s.admissionId);
         if (!p || p.status !== 'in_game' || p.game_id !== game.id) throw new Error('you are not in this game');
-        participantActions[msg.type](s.admissionId, msg, game);
+        const r = participantActions[msg.type](s.admissionId, msg, game);
+        // Direct reply to the attacker only: never anything about the victim's state.
+        if (msg.type === 'attack') send(ws, { type: 'attack_result', blocked: !!(r && r.blocked), endsAt: r && r.endsAt });
       } else {
         return send(ws, { type: 'error', error: 'bad_message' });
       }
@@ -228,34 +248,39 @@ export function createApp({
     markDirty();
   }
 
+  // The pipeline: director -> economy -> warnings -> hints -> ticks -> push. Each stage
+  // has its own try/catch. The economy, hints and the competition push run at most once
+  // per distinct server second, so two timers or duplicate calls cannot double-credit.
+  let lastSecond = null;
+  const guard = (name, fn) => { try { return fn(); } catch (e) { console.error(`${name} failed:`, e); return undefined; } };
   function tickAll() {
-    let changed = false;
-    try {
-      changed = director(ctx);
-    } catch (e) {
-      console.error('director failed:', e);
-    }
-    const game = activeGame(db);
-    if (game) {
-      try { changed = fireWarnings(ctx, game) || changed; } catch (e) { console.error('warnings failed:', e); }
-    }
+    let changed = !!guard('director', () => director(ctx));
+    let game = null;
+    guard('game lookup', () => { game = activeGame(db); });
     if (game) {
       const t = now();
-      const tick = JSON.stringify({ type: 'tick', serverNow: t, ...phaseAt(game, t), gameId: game.id });
-      for (const [ws, s] of sessions) {
-        if (s.kind === 'organizer') { sendRaw(ws, tick); continue; }
-        const p = getStatus.get(s.admissionId);
-        if (p && p.status === 'in_game' && p.game_id === game.id) sendRaw(ws, tick);
-      }
-    }
-    let phaseChanged = false;
-    if (game) {
-      const phase = phaseAt(game, now()).phase;
+      const sec = Math.floor(t / 1000);
+      const newSecond = sec !== lastSecond;
+      lastSecond = sec;
+      const clock = phaseAt(game, t);
+      if (newSecond) guard('economy', () => tickEconomy(ctx, game));
+      changed = !!guard('warnings', () => fireWarnings(ctx, game)) || changed;
+      if (newSecond) guard('hints', () => evaluateHints(ctx, game));
+      guard('tick', () => {
+        const warning = warningFor(clock);
+        const tick = JSON.stringify({ type: 'tick', serverNow: t, ...clock, gameId: game.id, ...(warning ? { warning } : {}) });
+        for (const [ws, s] of sessions) {
+          if (s.kind === 'organizer') { sendRaw(ws, tick); continue; }
+          const p = getStatus.get(s.admissionId);
+          if (p && p.status === 'in_game' && p.game_id === game.id) sendRaw(ws, tick);
+        }
+      });
       const prev = lastPhase.get(game.id);
-      lastPhase.set(game.id, phase);
-      phaseChanged = prev !== undefined && prev !== phase;
+      lastPhase.set(game.id, clock.phase);
+      if (prev !== undefined && prev !== clock.phase) changed = true;
+      if (clock.phase === 'competition' && newSecond) changed = true;
     }
-    if (changed || phaseChanged) { dirty = true; flush(); }
+    if (changed) guard('push', () => { dirty = true; flush(); });
   }
 
   // Two-strike ping: a socket that did not answer the previous ping is terminated.
