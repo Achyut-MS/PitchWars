@@ -24,3 +24,6 @@ export function runDirector(ctx, hooks = HOOKS, rng = Math.random) {
   }
   return ran;
 }
+
+import { resolveIdeation } from './ideation.js';
+HOOKS.ideation = resolveIdeation;
