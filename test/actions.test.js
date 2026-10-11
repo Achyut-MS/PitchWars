@@ -435,3 +435,19 @@ test('a participant row that says in_game with no active game gets the lobby scr
   assert.equal(m.view.screen, 'lobby');
   await done(app, o, p);
 });
+
+test('skip_phase: organizer-only, pushes the new phase, logs from/to, refused in the competition', async () => {
+  const { db, app, url, setT } = await boot();
+  const o = await organizer(url);
+  await runningGame(o, setT);
+  const p = await connect(url);
+  await ask(p, { type: 'login', admissionId: 'S11' });
+  assert.deepEqual(await ask(p, { type: 'skip_phase' }), { type: 'error', error: 'bad_message' });
+  const before = db.prepare('SELECT started_at FROM games').get().started_at;
+  const r = await ask(o, { type: 'skip_phase' });
+  assert.equal(r.type, 'state');
+  assert.ok(db.prepare('SELECT started_at FROM games').get().started_at < before);
+  const ev = db.prepare("SELECT payload FROM events WHERE type='organizer_action'").all().map((e) => JSON.parse(e.payload)).find((e) => e.action === 'skip_phase');
+  assert.deepEqual(ev.args, { from: 'briefing', to: 'ideation' });
+  await done(app, o, p);
+});

@@ -159,3 +159,18 @@ test('the organizer shows an offline banner and disabled controls when offline',
   assert.match(html, /Offline - reconnecting/);
   assert.match(html, /id="start"[^>]*disabled|disabled[^>]*id="start"/);
 });
+
+test('skip to next phase: a rehearsal control with a two-step confirm, hidden in the competition and the lobby', () => {
+  for (const ph of ['briefing', 'ideation', 'shop', 'summary']) {
+    const first = renderOrganizer(running(ph));
+    assert.match(first, /data-confirm="skip_phase"/, ph);
+    assert.match(first, /skip to next phase/i);
+    assert.match(first, /rehearsal|testing/i);
+    assert.equal(first.includes('"type":"skip_phase"'), false);
+  }
+  const second = renderOrganizer(running('shop'), { confirm: 'skip_phase' });
+  assert.match(second, /"type":"skip_phase"/);
+  assert.match(second, /data-confirm=""/);
+  assert.equal(renderOrganizer(running('competition')).includes('skip_phase'), false);
+  assert.equal(renderOrganizer(lobby()).includes('skip_phase'), false);
+});

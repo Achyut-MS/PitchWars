@@ -17,6 +17,7 @@ import { assign, unassign, startGame, endGame } from './lobby.js';
 import { swapSeats, replacePlayer } from './seats.js';
 import { castVote, pickIdea, endIdeationNow } from './ideation.js';
 import { requestItem, recommendItem, ceoDecide, cfoDecide } from './shop.js';
+import { skipToNextPhase } from './skip.js';
 import { viewFor, organizerView } from './views.js';
 
 const MAX_FAILS = 5;
@@ -125,6 +126,11 @@ export function createApp({
       const g = needGame();
       endGame(db, g.id, now());
       logAct('end_game', {}, g.id);
+    },
+    skip_phase: () => {
+      const g = needGame();
+      const r = skipToNextPhase(db, g, now());
+      logAct('skip_phase', { from: r.from, to: r.to }, g.id);
     },
     end_ideation_early: () => {
       const g = needGame();

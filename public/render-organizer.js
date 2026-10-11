@@ -95,6 +95,8 @@ export function renderOrganizer(v, ui = {}) {
     ? `<p class="warn" role="alert">Warning: the ${stuck.map(esc).join(', ')} phase could not finish. Check the server log.</p>` : '';
   const controls = `<section class="card"><h2>Controls</h2>
   ${clock.phase === 'ideation' ? confirmButton('end ideation early', 'end_ideation_early', ui) : ''}
+  ${['briefing', 'ideation', 'shop', 'summary'].includes(clock.phase)
+    ? `<p class="muted">Rehearsal and testing only:</p>${confirmButton('skip to next phase', 'skip_phase', ui)}` : ''}
   ${confirmButton('end game', 'end_game', ui)}</section>`;
   return `<header class="bar"><span>Game ${esc(v.game.id)}</span><span class="phase">${esc(clock.phase)}</span><span id="clock">${fmtClock(clock.remainingSec)}</span></header>
   <main>${banner}${err}${controls}${clock.phase === 'briefing' ? seatTools(v, ui) : ''}</main>
