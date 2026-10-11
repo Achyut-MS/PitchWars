@@ -79,7 +79,7 @@ test('the shop shows the wallet, the items and a request button only for my own 
   const cmo = renderScreen(shopView('CMO'));
   assert.match(cmo, /1000/);
   assert.match(cmo, /"type":"request"/);
-  assert.match(cmo, /"choice":2/); // brand choices are separate buttons
+  assert.match(cmo, /"choice":"2"/); // brand choices are separate buttons
   assert.match(cmo, /FreshSense/);
   const cto = renderScreen(shopView('CTO'));
   assert.equal(cto.includes('"type":"request"'), false);

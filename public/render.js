@@ -61,12 +61,12 @@ function catalogItem(it) {
   const buy = [];
   if (it.canRequest) {
     if (it.choices) {
-      it.choices.forEach((c, n) => buy.push(send(c, { type: 'request', itemId: it.id, choice: n + 1 })));
+      it.choices.forEach((c, n) => buy.push(send(c, { type: 'request', itemId: it.id, choice: String(n + 1) })));
     } else buy.push(send(`Request for ${it.price}`, { type: 'request', itemId: it.id }));
   }
   if (it.canRecommend) {
     if (it.choices) {
-      it.choices.forEach((c, n) => buy.push(send(`Recommend ${c}`, { type: 'recommend', itemId: it.id, choice: n + 1 })));
+      it.choices.forEach((c, n) => buy.push(send(`Recommend ${c}`, { type: 'recommend', itemId: it.id, choice: String(n + 1) })));
     } else buy.push(send('Recommend', { type: 'recommend', itemId: it.id }));
   }
   return `<li class="item ${esc(it.state)}"><span class="name">${esc(it.label)}</span>
