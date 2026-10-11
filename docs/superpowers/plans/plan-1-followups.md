@@ -2,8 +2,8 @@
 
 Found during Plan 1 reviews. Plan 1 is built and tested (76/76); these were deliberately not fixed there.
 
-## Decide before Plan 2 starts
-- **One server clock.** `resumeActiveGame` rebases only `games.started_at`. Every other stored time (events, attack end times, cooldowns, market event ends, notices, `last_tick_at`, export windows) is raw `Date.now()`. After a power cut with no RTC, attacks and cooldowns can last an hour too long or expire early. Proposed fix: one `serverNow() = Date.now() + offset`, the offset saved at boot from the last heartbeat, used by every module; or have resume return the shift and rebase every table.
+## Done
+- ~~One server clock~~ Done: `src/clock.js`; the clock continues from the last heartbeat after a restart (`resumeActiveGame(db, clock)`).
 
 ## Plan 2 (screens, ideation, shop)
 - Log organizer actions and `assign` / `unassign` / roster changes in `events` (`assign` does not call `logEvent` today).

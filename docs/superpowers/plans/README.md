@@ -14,6 +14,7 @@ The spec is `Future_Makers_Round_2_Startup_Showdown_Master_Guide.md` in the proj
 
 ## Rules that apply to every plan
 
+- **Time:** never call `Date.now()` in game code; use the clock's `now()` passed in as `now`. The clock continues from the last heartbeat after a restart.
 - **Test first.** Every task follows red, green, refactor (superpowers:test-driven-development).
 - **Offline only.** No CDN, no external fonts or scripts. Dev dependencies are installed once while online, then copied to the Pi.
 - **Plain HTML, CSS and JavaScript** in the browser. Screens are built from pure `render` functions that return HTML strings, so they are tested in Node without a browser.
