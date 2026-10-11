@@ -1,6 +1,6 @@
 import { logEvent } from './events.js';
 import { phaseAt, endIdeationEarly } from './phases.js';
-import { companyState, playerIn } from './state.js';
+import { companyState, playerIn, prep } from './state.js';
 
 function requireIdeation(ctx, game) {
   if (phaseAt(game, ctx.now()).phase !== 'ideation') throw new Error('ideation is not open');
@@ -25,7 +25,7 @@ function freshGame(ctx, game) {
 
 export function tally(db, gameId, company) {
   const out = {};
-  for (const r of db.prepare('SELECT idea_id, COUNT(*) AS n FROM votes WHERE game_id = ? AND company = ? GROUP BY idea_id').all(gameId, company)) {
+  for (const r of prep(db, 'SELECT idea_id, COUNT(*) AS n FROM votes WHERE game_id = ? AND company = ? GROUP BY idea_id').all(gameId, company)) {
     out[r.idea_id] = r.n;
   }
   return out;

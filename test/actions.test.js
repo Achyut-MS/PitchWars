@@ -319,3 +319,119 @@ test('pingAll terminates sockets that never answered and keeps live ones', async
   assert.equal(live.readyState, 1);
   await done(app, live);
 });
+
+// ---- review fixes: coalesced push, phase push, payload size, global throttle ----
+
+async function bootManual() {
+  const db = openDb();
+  let t = 0;
+  const timers = [];
+  const app = createApp({
+    db, organizerPassword: 'pw', now: () => t, data, staticRoot: null,
+    setTimer: (fn, ms) => { const h = { fn, ms, live: true }; timers.push(h); return h; },
+    clearTimer: (h) => { if (h) h.live = false; },
+  });
+  await new Promise((r) => app.server.listen(0, r));
+  const fire = () => timers.filter((h) => h.live).forEach((h) => { h.live = false; h.fn(); });
+  return { db, app, url: `ws://127.0.0.1:${app.server.address().port}`, setT: (v) => (t = v), fire, timers };
+}
+const collect = (ws) => { const got = []; ws.on('message', (d) => got.push(JSON.parse(d))); return got; };
+const tick = () => new Promise((r) => setTimeout(r, 40));
+
+test('the actor gets state at once; everyone else gets ONE coalesced push after five rapid actions', async () => {
+  const { app, url, setT, fire } = await bootManual();
+  const o = await organizer(url);
+  await runningGame(o, setT);
+  const cto = await connect(url);
+  await ask(cto, { type: 'login', admissionId: 'S1' });
+  const ceo = await connect(url);
+  await ask(ceo, { type: 'login', admissionId: 'S0' });
+  fire(); await tick();
+  setT(1000 + 200_000);
+  const seen = collect(ceo);
+  for (let i = 0; i < 5; i++) assert.equal((await ask(cto, { type: 'vote', ideaId: i % 2 ? 'H1' : 'H2' })).type, 'state');
+  await tick();
+  assert.equal(seen.length, 0, 'nothing is pushed to others before the flush');
+  fire(); await tick();
+  assert.equal(seen.filter((m) => m.type === 'state').length, 1);
+  fire(); await tick();
+  assert.equal(seen.filter((m) => m.type === 'state').length, 1, 'no repeat flush when nothing changed');
+  await done(app, o, cto, ceo);
+});
+
+test('pushing to 80 sessions stays fast', async () => {
+  const { app, url, setT } = await bootManual();
+  const o = await organizer(url);
+  await runningGame(o, setT);
+  const socks = [];
+  for (let i = 0; i < 80; i++) { const w = await connect(url); await ask(w, { type: 'login', admissionId: `S${i % 10}` }); socks.push(w); }
+  setT(1000 + 370_000); // shop: the tick auto-picks ideas, so every view carries the full catalog
+  const t0 = performance.now();
+  app.tickAll(); // runs the ideation hook, then pushes to all 80 + organizer
+  const ms = performance.now() - t0;
+  assert.ok(ms < 150, `push of 80 sessions took ${ms.toFixed(1)} ms`);
+  await done(app, o, ...socks);
+});
+
+test('a phase change with no hook pushes a new view to everyone', async () => {
+  const { app, url, setT } = await bootManual();
+  const o = await organizer(url);
+  await runningGame(o, setT);
+  const p = await connect(url);
+  await ask(p, { type: 'login', admissionId: 'S1' });
+  setT(1000 + 10_000); app.tickAll(); // briefing recorded
+  await tick();
+  const seen = collect(p);
+  setT(1000 + 181_000); // ideation begins
+  app.tickAll();
+  await tick();
+  const st = seen.find((m) => m.type === 'state');
+  assert.ok(st, 'state pushed at the phase change');
+  assert.equal(st.view.clock.phase, 'ideation');
+  await done(app, o, p);
+});
+
+test('an organizer may paste a 200-row roster; a participant sending 5000 bytes is dropped', async () => {
+  const { app, url, setT } = await boot();
+  const o = await organizer(url);
+  let roster = '';
+  for (let i = 0; i < 200; i++) roster += `R${i},Student number ${i}\n`;
+  assert.ok(roster.length > 4096);
+  const m = await send(o, { type: 'roster_import', text: roster });
+  assert.equal(m.view.participants.length, 200);
+  await send(o, { type: 'assign', admissionId: 'R0', company: 'A', role: 'CEO' });
+  const p = await connect(url);
+  await ask(p, { type: 'login', admissionId: 'R0' });
+  const closed = new Promise((r) => p.once('close', r));
+  p.send(JSON.stringify({ type: 'sync', pad: 'x'.repeat(5000) }));
+  await closed;
+  assert.equal(o.readyState, 1);
+  assert.equal((await send(o, { type: 'sync' })).type, 'state');
+  await done(app, o, p);
+});
+
+test('a global limiter slows password guessing across reconnects', async () => {
+  const { app, url, setT } = await boot();
+  setT(100_000);
+  const socks = [];
+  for (let i = 0; i < 10; i++) { const w = await connect(url); socks.push(w); assert.equal((await ask(w, { type: 'organizer', password: 'bad' })).error, 'bad_password'); }
+  const w = await connect(url); socks.push(w);
+  setT(101_000);
+  assert.equal((await ask(w, { type: 'organizer', password: 'bad' })).error, 'bad_password'); // allowed: a second has passed
+  assert.equal((await ask(w, { type: 'organizer', password: 'pw' })).error, 'too_many_attempts'); // same instant
+  setT(102_200);
+  assert.equal((await ask(w, { type: 'organizer', password: 'pw' })).type, 'welcome');
+  await done(app, ...socks);
+});
+
+test('a participant row that says in_game with no active game gets the lobby screen, not a crash', async () => {
+  const { db, app, url } = await boot();
+  const o = await organizer(url);
+  await send(o, { type: 'add_participant', admissionId: 'g1', name: 'Ghost' });
+  db.prepare("UPDATE participants SET status='in_game', game_id=99, company='A', role='CEO' WHERE admission_id='G1'").run();
+  const p = await connect(url);
+  await ask(p, { type: 'login', admissionId: 'G1' });
+  const m = await send(p, { type: 'sync' });
+  assert.equal(m.view.screen, 'lobby');
+  await done(app, o, p);
+});

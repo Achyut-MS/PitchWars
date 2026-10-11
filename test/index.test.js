@@ -108,4 +108,7 @@ test('checkPassword rejects unset, empty and the placeholder password', () => {
   assert.equal(checkPassword('change-me-before-the-event').ok, false);
   assert.match(checkPassword('').message, /ORGANIZER_PASSWORD/);
   assert.equal(checkPassword('a-real-secret').ok, true);
+  assert.equal(checkPassword('short').ok, false);
+  assert.match(checkPassword('1234567').message, /8 characters/);
+  assert.equal(checkPassword('12345678').ok, true);
 });

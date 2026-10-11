@@ -14,6 +14,10 @@ export function rejectionBlock(ctx, game, company, family, phase) {
   const last = ctx.db
     .prepare("SELECT * FROM requests WHERE game_id=? AND company=? AND family=? AND status='rejected' ORDER BY decided_at DESC, id DESC LIMIT 1")
     .get(game.id, company, family);
+  return blockFromLast(ctx, last, phase);
+}
+
+export function blockFromLast(ctx, last, phase) {
   if (!last) return null;
   if (last.phase === 'shop' && phase === 'shop') return 'rejected in this phase; you can ask again in the next phase';
   if (last.phase === 'competition' && phase === 'competition' && ctx.now() - last.decided_at < RETRY_AFTER_MS) {

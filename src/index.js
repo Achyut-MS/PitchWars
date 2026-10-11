@@ -12,6 +12,7 @@ export function checkPassword(pw) {
   if (!pw || pw === PLACEHOLDER_PASSWORD) {
     return { ok: false, message: 'Set ORGANIZER_PASSWORD to a real secret (not empty, not the placeholder) before starting the server.' };
   }
+  if (pw.length < 8) return { ok: false, message: 'ORGANIZER_PASSWORD must be at least 8 characters.' };
   return { ok: true };
 }
 

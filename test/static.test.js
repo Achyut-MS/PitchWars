@@ -90,6 +90,7 @@ test('query strings are ignored, other methods are refused, HEAD has no body', a
   await withServer(async (port) => {
     assert.equal((await get(port, '/app.js?v=3')).status, 200);
     assert.equal((await get(port, '/app.js', 'POST')).status, 405);
+    assert.equal(await new Promise((r) => http.request({ port, path: '/', method: 'POST' }, (res) => { res.resume(); r(res.headers.allow); }).end()), 'GET, HEAD');
     const h = await get(port, '/app.js', 'HEAD');
     assert.equal(h.status, 200);
     assert.equal(h.body, '');

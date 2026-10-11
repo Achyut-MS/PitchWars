@@ -17,6 +17,11 @@ import { viewFor, organizerView } from './views.js';
 const MAX_FAILS = 5;
 const WINDOW_MS = 60_000;
 const LOCK_MS = 60_000;
+const GLOBAL_FAILS = 10;
+const GLOBAL_GAP_MS = 1000;
+const SMALL_MSG = 4096;
+const BIG_MSG = 262144;
+const COALESCE_MS = 200;
 
 const bad = () => new Error('bad_message');
 const str = (v) => { if (typeof v !== 'string') throw bad(); return v; };
@@ -27,34 +32,51 @@ const has = (o, k) => Object.hasOwn(o, k);
 
 export function createApp({
   db, organizerPassword, now = Date.now, data = loadData(), staticRoot = 'public', director = runDirector,
+  setTimer = (fn, ms) => setTimeout(fn, ms).unref(), clearTimer = clearTimeout,
 }) {
   const ctx = { db, data, now };
   const handler = staticRoot
     ? staticHandler(staticRoot)
     : (req, res) => { res.writeHead(404); res.end(); };
   const server = http.createServer(handler);
-  const wss = new WebSocketServer({ server, maxPayload: 4096 });
+  const wss = new WebSocketServer({ server, maxPayload: BIG_MSG });
   const sessions = new Map(); // ws -> { kind: 'organizer' } | { kind: 'participant', admissionId }
   const attempts = new WeakMap(); // ws -> { fails: [ts], lockedUntil }
   const alive = new WeakMap();
+  const global = { fails: [], lastAllowed: -Infinity };
+  const lastPhase = new Map(); // gameId -> phase last seen by the tick
+  let dirty = false;
+  let timer = null;
 
   const sendRaw = (ws, text) => ws.readyState === 1 && ws.send(text);
   const send = (ws, msg) => sendRaw(ws, JSON.stringify(msg));
-  const viewOf = (s) => (s.kind === 'organizer' ? organizerView(ctx) : viewFor(ctx, s.admissionId));
   const getStatus = db.prepare('SELECT status, game_id FROM participants WHERE admission_id = ?');
 
   // Pushes fresh state to every session; a failing view never stops the others.
-  // The sender (if given) also gets the action's result.
-  function pushAll(sender = null, result = null) {
+  // One cache per push shares the per-company shop state between viewers.
+  function pushAll(only = null, result = null) {
+    const cache = new Map();
     for (const [ws, s] of sessions) {
+      if (only && ws !== only) continue;
       try {
-        const msg = { type: 'state', view: viewOf(s) };
-        if (ws === sender && result) msg.result = result;
+        const msg = { type: 'state', view: s.kind === 'organizer' ? organizerView(ctx, cache) : viewFor(ctx, s.admissionId, cache) };
+        if (result) msg.result = result;
         send(ws, msg);
       } catch (e) {
         console.error('push failed:', e);
       }
     }
+  }
+  // The actor sees the result at once; everyone else is updated by one coalesced push.
+  function flush() {
+    if (timer) { clearTimer(timer); timer = null; }
+    if (!dirty) return;
+    dirty = false;
+    pushAll();
+  }
+  function markDirty() {
+    dirty = true;
+    if (!timer) timer = setTimer(() => { timer = null; try { flush(); } catch (e) { console.error('flush failed:', e); } }, COALESCE_MS);
   }
 
   const needGame = () => { const g = activeGame(db); if (!g) throw new Error('no game is running'); return g; };
@@ -127,6 +149,9 @@ export function createApp({
       ws.terminate();
     });
     ws.on('message', (raw) => {
+      const size = raw.byteLength ?? raw.length;
+      const kind = (sessions.get(ws) || {}).kind;
+      if (size > SMALL_MSG && kind !== 'organizer') return ws.terminate();
       try {
         handle(ws, raw);
       } catch {
@@ -142,8 +167,13 @@ export function createApp({
     const a = attempts.get(ws) || { fails: [], lockedUntil: 0 };
     attempts.set(ws, a);
     if (t < a.lockedUntil) return 'too_many_attempts';
+    // Global limiter: after 10 failures in a minute (any connection) allow one attempt a second.
+    global.fails = global.fails.filter((x) => t - x < WINDOW_MS);
+    if (global.fails.length >= GLOBAL_FAILS && t - global.lastAllowed < GLOBAL_GAP_MS) return 'too_many_attempts';
+    global.lastAllowed = t;
     a.fails = a.fails.filter((x) => t - x < WINDOW_MS);
     if (organizerLogin(password, organizerPassword)) return 'ok';
+    global.fails.push(t);
     a.fails.push(t);
     if (a.fails.length >= MAX_FAILS) { a.lockedUntil = t + LOCK_MS; a.fails = []; }
     return 'bad_password';
@@ -175,7 +205,7 @@ export function createApp({
 
     const s = sessions.get(ws);
     if (!s) return send(ws, { type: 'error', error: 'bad_message' });
-    if (msg.type === 'sync') return send(ws, { type: 'state', view: viewOf(s) });
+    if (msg.type === 'sync') return pushAll(ws);
 
     let result;
     try {
@@ -194,6 +224,7 @@ export function createApp({
       return send(ws, { type: 'error', error: errorText(e) });
     }
     pushAll(ws, result);
+    markDirty();
   }
 
   function tickAll() {
@@ -213,7 +244,14 @@ export function createApp({
         if (p && p.status === 'in_game' && p.game_id === game.id) sendRaw(ws, tick);
       }
     }
-    if (changed) pushAll();
+    let phaseChanged = false;
+    if (game) {
+      const phase = phaseAt(game, now()).phase;
+      const prev = lastPhase.get(game.id);
+      lastPhase.set(game.id, phase);
+      phaseChanged = prev !== undefined && prev !== phase;
+    }
+    if (changed || phaseChanged) { dirty = true; flush(); }
   }
 
   // Two-strike ping: a socket that did not answer the previous ping is terminated.
@@ -225,5 +263,5 @@ export function createApp({
     }
   }
 
-  return { server, wss, tickAll, pingAll, ctx };
+  return { server, wss, tickAll, pingAll, flush, ctx };
 }

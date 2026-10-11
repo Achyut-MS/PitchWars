@@ -18,10 +18,10 @@ const inside = (base, file) => file === base || file.startsWith(base + sep);
 
 export function staticHandler(rootDir) {
   const base = resolve(rootDir);
-  const reply = (res, status) => { res.writeHead(status); res.end(); };
+  const reply = (res, status, headers = {}) => { res.writeHead(status, headers); res.end(); };
   return async (req, res) => {
     try {
-      if (req.method !== 'GET' && req.method !== 'HEAD') return reply(res, 405);
+      if (req.method !== 'GET' && req.method !== 'HEAD') return reply(res, 405, { allow: 'GET, HEAD' });
       let path;
       try {
         path = decodeURIComponent((req.url || '/').split('?')[0].split('#')[0]);
