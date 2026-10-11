@@ -1,10 +1,11 @@
-import { esc, fmtClock } from './render.js';
+import { esc, fmtClock, plural, renderOffline } from './render.js';
 
 const ROLES = ['CEO', 'CTO', 'CFO', 'CMO', 'COO'];
 
 // Same encoding as render.js: JSON sits in a single-quoted attribute, & < > ' entity-encoded.
 const attr = (s) => s.replace(/[&<>']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;' }[c]));
 const send = (label, msg, cls = '') => `<button class="${cls}" data-send='${attr(JSON.stringify(msg))}'>${esc(label)}</button>`;
+const dis = (ui) => (ui && ui.offline ? ' disabled' : '');
 const arr = (a) => (Array.isArray(a) ? a : []);
 
 export function renderOrganizerLogin(error) {
@@ -38,18 +39,20 @@ function lobby(v, ui) {
   return `<section class="card"><h2>Roster</h2>
   <textarea id="roster" rows="4" placeholder="admission_id,name (one per line)"></textarea>
   <input type="file" id="roster-file" accept=".csv,.txt,text/csv,text/plain" aria-label="Roster file">
-  <button id="import">Import roster</button>
+  <button id="import"${dis(ui)}>Import roster</button>
   ${importSummary(ui.importResult)}
-  <p><input id="add-id" placeholder="Admission ID"> <input id="add-name" placeholder="Name"> <button id="add">Add participant</button></p></section>
+  <p><input id="add-id" placeholder="Admission ID"> <input id="add-name" placeholder="Name"> <button id="add"${dis(ui)}>Add participant</button></p></section>
   <section class="card"><h2>Lobby</h2><p>${seated} of 10 seats filled</p>
   <table><thead><tr><th>ID</th><th>Name</th><th>Status</th><th>Seat</th></tr></thead><tbody>${rows}</tbody></table></section>
   <section class="card"><h2>Start</h2><label>Problem statement <select id="problem">${problems}</select></label>
-  <button id="start" class="primary">Start game</button></section>`;
+  ${ui.confirm === 'start_game'
+    ? `<span class="confirm">The clock starts for everyone. <button id="start-yes" class="danger"${dis(ui)}>Yes, start game</button><button data-confirm="">Cancel</button></span>`
+    : `<button id="start" class="primary" data-confirm="start_game"${dis(ui)}>Start game</button>`}</section>`;
 }
 
-function panel(name, c) {
+function panel(name, c, ideas) {
   if (!c) return `<section class="card"><h2>Company ${esc(name)}</h2><p class="muted">No data.</p></section>`;
-  const votes = Object.entries(c.votes ?? {}).map(([id, n]) => `${esc(id)}: ${esc(n)}`).join(', ');
+  const votes = Object.entries(c.votes ?? {}).map(([id, n]) => `${esc(arr(ideas).find((i) => i && i.id === id)?.name ?? id)}: ${esc(plural(n, 'vote'))}`).join(', ');
   const owned = arr(c.owned);
   const items = owned.length ? owned.map((o) => `<li>${esc(o.label)} <span>${esc(o.charged)}</span></li>`).join('') : '<li class="muted">Nothing bought</li>';
   const q = arr(c.queue);
@@ -57,7 +60,7 @@ function panel(name, c) {
   const aw = arr(c.awaitingCeo);
   const awaiting = aw.length ? `<h3>Waiting for CEO</h3><ul>${aw.map((r) => `<li>${esc(r.label)} (${esc(r.by)})</li>`).join('')}</ul>` : '';
   return `<section class="card"><h2>Company ${esc(name)}</h2>
-  <p class="big">${esc(c.wallet)} coins</p>
+  <p class="big">${esc(plural(c.wallet, 'coin'))}</p>
   <p>Idea: ${c.idea ? `${esc(c.idea.name)} (${esc(c.pickSource ?? '')})` : '<span class="muted">not picked</span>'}</p>
   ${votes ? `<p>Votes: ${votes}</p>` : ''}
   <h3>Bought</h3><ul>${items}</ul><h3>CFO queue</h3><ul>${queue}</ul>${awaiting}</section>`;
@@ -65,25 +68,25 @@ function panel(name, c) {
 
 const confirmButton = (label, action, ui) => (ui.confirm === action
   ? `<span class="confirm">Are you sure? ${send(`Yes, ${label}`, { type: action }, 'danger')}<button data-confirm="">Cancel</button></span>`
-  : `<button data-confirm="${esc(action)}">${esc(label)}</button>`);
+  : `<button data-confirm="${esc(action)}"${dis(ui)}>${esc(label)}</button>`);
 
-function seatTools(v) {
+function seatTools(v, ui) {
   const players = arr(v.participants).filter((p) => p.status === 'in_game');
   const lobbyers = arr(v.participants).filter((p) => p.status === 'lobby');
   const opt = (p) => `<option value="${esc(p.admission_id)}">${esc(p.name)} (${esc(p.admission_id)}${p.company ? `, ${esc(p.company)} ${esc(p.role)}` : ''})</option>`;
+  const sel = (id, label, list) => `<label for="${id}">${label} <select id="${id}">${list.map(opt).join('')}</select></label>`;
   return `<section class="card"><h2>Briefing seat changes</h2>
-  <p><select id="swap-a" aria-label="Swap first">${players.map(opt).join('')}</select>
-  <select id="swap-b" aria-label="Swap second">${players.map(opt).join('')}</select>
-  <button id="swap">Swap seats</button></p>
-  <p><select id="replace-out" aria-label="Replace this player">${players.map(opt).join('')}</select>
-  <select id="replace-in" aria-label="With this lobby player">${lobbyers.map(opt).join('')}</select>
-  <button id="replace">Replace player</button></p></section>`;
+  <p>${sel('swap-a', 'Swap: first player', players)} ${sel('swap-b', 'Swap: second player', players)}
+  <button id="swap"${dis(ui)}>Swap seats</button></p>
+  <p>${sel('replace-out', 'Replace: who leaves', players)} ${sel('replace-in', 'Replace: who comes in', lobbyers)}
+  <button id="replace"${dis(ui)}>Replace player</button></p></section>`;
 }
 
 export function renderOrganizer(v, ui = {}) {
   if (!v || typeof v !== 'object') return '<main><p class="error">No data.</p></main>';
   ui = ui || {};
-  const err = ui.error ? `<p class="error" role="alert" id="org-error">${esc(ui.error)}</p>` : '';
+  const off = ui.offline ? renderOffline() : '';
+  const err = off + (ui.error ? `<p class="error" role="alert" id="org-error">${esc(ui.error)}</p>` : '');
   if (!v.game) return `<main>${err}${lobby(v, ui)}</main>`;
   const clock = v.game.clock ?? { phase: '?', remainingSec: 0 };
   const companies = v.game.companies ?? {};
@@ -94,6 +97,6 @@ export function renderOrganizer(v, ui = {}) {
   ${clock.phase === 'ideation' ? confirmButton('end ideation early', 'end_ideation_early', ui) : ''}
   ${confirmButton('end game', 'end_game', ui)}</section>`;
   return `<header class="bar"><span>Game ${esc(v.game.id)}</span><span class="phase">${esc(clock.phase)}</span><span id="clock">${fmtClock(clock.remainingSec)}</span></header>
-  <main>${banner}${err}${controls}${clock.phase === 'briefing' ? seatTools(v) : ''}</main>
-  <main class="two">${panel('A', companies.A)}${panel('B', companies.B)}</main>`;
+  <main>${banner}${err}${controls}${clock.phase === 'briefing' ? seatTools(v, ui) : ''}</main>
+  <main class="two">${panel('A', companies.A, v.game.ideas)}${panel('B', companies.B, v.game.ideas)}</main>`;
 }

@@ -123,3 +123,39 @@ test('malformed views do not throw', () => {
   const v = running(); delete v.game.companies.B;
   assert.doesNotThrow(() => renderOrganizer(v));
 });
+
+test('start game needs a two-step confirm like end game', () => {
+  const first = renderOrganizer(lobby());
+  assert.match(first, /id="start"[^>]*data-confirm="start_game"|data-confirm="start_game"[^>]*id="start"/);
+  assert.equal(first.includes('id="start-yes"'), false);
+  const second = renderOrganizer(lobby(), { confirm: 'start_game' });
+  assert.match(second, /id="start-yes"/);
+  assert.match(second, /data-confirm=""/);
+});
+
+test('the monitor shows idea names with plural-correct vote counts', () => {
+  const v = running();
+  v.game.ideas = [{ id: 'H1', name: 'Smart Fridge Sensor' }, { id: 'H2', name: 'Canteen Waste Scale' }];
+  v.game.companies.A.votes = { H1: 1, H2: 2 };
+  const html = renderOrganizer(v);
+  assert.match(html, /Smart Fridge Sensor: 1 vote\b(?!s)/);
+  assert.match(html, /Canteen Waste Scale: 2 votes/);
+  assert.equal(html.includes('H2: 2'), false);
+  v.game.ideas = [{ id: 'H1', name: '<script>x</script>' }];
+  assert.equal(renderOrganizer(v).includes('<script>x'), false);
+});
+
+test('swap and replace selects have visible labels', () => {
+  const b = renderOrganizer(running('briefing'));
+  for (const t of ['Swap: first player', 'Swap: second player', 'Replace: who leaves', 'Replace: who comes in']) assert.match(b, new RegExp(`<label[^>]*for="[^"]+"[^>]*>${t}`));
+});
+
+test('organizer login error is a sentence', () => {
+  assert.match(renderOrganizerLogin('Wrong password'), /Wrong password/);
+});
+
+test('the organizer shows an offline banner and disabled controls when offline', () => {
+  const html = renderOrganizer(lobby(), { offline: true });
+  assert.match(html, /Offline - reconnecting/);
+  assert.match(html, /id="start"[^>]*disabled|disabled[^>]*id="start"/);
+});

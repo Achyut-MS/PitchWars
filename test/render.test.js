@@ -59,7 +59,7 @@ test('a hostile idea name is escaped', () => {
   assert.match(html, /&lt;script&gt;/);
 });
 
-const shopView = (role, over = {}) => base({
+const hintView = (role, over = {}) => base({
   me: { admissionId: 'S1', name: 'Asha', company: 'A', role },
   clock: { phase: 'shop', remainingSec: 300 }, idea: { id: 'H1', type: 'hardware', name: 'Smart Fridge Sensor', description: '' },
   shop: {
@@ -76,24 +76,24 @@ const shopView = (role, over = {}) => base({
 });
 
 test('the shop shows the wallet, the items and a request button only for my own section', () => {
-  const cmo = renderScreen(shopView('CMO'));
+  const cmo = renderScreen(hintView('CMO'));
   assert.match(cmo, /1000/);
   assert.match(cmo, /"type":"request"/);
   assert.match(cmo, /"choice":"2"/); // brand choices are separate buttons
   assert.match(cmo, /FreshSense/);
-  const cto = renderScreen(shopView('CTO'));
+  const cto = renderScreen(hintView('CTO'));
   assert.equal(cto.includes('"type":"request"'), false);
 });
 
 test('the CFO sees the queue with approve and reject for the head only', () => {
-  const html = renderScreen(shopView('CFO'));
+  const html = renderScreen(hintView('CFO'));
   assert.match(html, /"type":"cfo_decide"/);
   assert.match(html, /"approve":true/);
   assert.match(html, /"approve":false/);
 });
 
 test('the CEO sees the features waiting for approval and recommend buttons', () => {
-  const html = renderScreen(shopView('CEO'));
+  const html = renderScreen(hintView('CEO'));
   assert.match(html, /"type":"ceo_decide"/);
   assert.match(html, /"type":"recommend"/);
 });
@@ -116,7 +116,7 @@ test('after the game ends players see only a thank you', () => {
 // Hostile strings must never reach the output raw, in any screen or attribute.
 const EVIL = `<script>alert(1)</script>"onerror="x' javascript:& <img src=x onerror=1>`;
 const hostileView = (phase, role = 'CEO', over = {}) => {
-  const v = shopView(role);
+  const v = hintView(role);
   return {
     ...v,
     me: { admissionId: 'S1', name: EVIL, company: EVIL, role },
@@ -168,4 +168,59 @@ test('hostile strings are escaped on every screen and attribute', () => {
 test('a quote in a choice cannot break out of data-send', () => {
   const html = renderScreen(hostileView('shop', 'CMO'));
   assert.match(html, /o&#39;k/);
+});
+
+import { plural, renderConnecting, renderOffline } from '../public/render.js';
+import { renderScreen as rs2 } from '../public/render.js';
+
+test('plural handles 1, 0 and many', () => {
+  assert.equal(plural(1, 'vote'), '1 vote');
+  assert.equal(plural(0, 'vote'), '0 votes');
+  assert.equal(plural(2, 'coin'), '2 coins');
+});
+
+test('connecting and offline banners', () => {
+  assert.match(renderConnecting(), /Connecting/);
+  assert.match(renderOffline(), /Offline - reconnecting/);
+});
+
+function roleShop(role, over = {}) {
+  const item = (id, section, r, state = 'available', extra = {}) => ({ id, name: id, label: id, option: '', section, role: r, cost: 10, price: 10, state, note: '', canRequest: r === role && state === 'available', canRecommend: role === 'CEO' && state === 'available', choices: null, ...extra });
+  return {
+    screen: 'game', me: { name: 'x', company: 'A', role }, clock: { phase: 'shop', remainingSec: 60 }, wallet: 1, owned: [], idea: { name: 'I' },
+    shop: { open: true, mine: [], catalog: [item('F1', 'Core Features', 'CTO'), item('M5', 'Ad Campaign', 'CMO'), item('F2', 'Core Features', 'CTO', 'owned', { canRecommend: true }), item('F3', 'Core Features', 'CTO', 'requested', { canRecommend: true })], ...(role === 'CEO' || role === 'CFO' ? { queue: [], awaitingCeo: role === 'CEO' ? [] : undefined } : {}), ...over },
+  };
+}
+
+test('each role gets a one-line hint on the shop screen', () => {
+  assert.match(rs2(roleShop('CTO')), /Request features for the CEO to approve/);
+  assert.match(rs2(roleShop('CEO')), /Approve features and recommend items for the CFO/);
+  assert.match(rs2(roleShop('CFO')), /Approve or reject the oldest request first/);
+  assert.match(rs2(roleShop('CMO')), /class="hint"/);
+  assert.match(rs2(roleShop('COO')), /class="hint"/);
+});
+
+test('recommend buttons are hidden for owned or requested items even if the view allows them', () => {
+  const html = rs2(roleShop('CEO'));
+  assert.equal((html.match(/"type":"recommend"/g) || []).length, 2); // F1 and M5 only
+});
+
+test('only the role\'s own catalog section is open; others are collapsed details', () => {
+  const html = rs2(roleShop('CTO'));
+  assert.match(html, /<details[^>]*open[^>]*data-key="sec-Core Features"|<details[^>]*data-key="sec-Core Features"[^>]*open/);
+  assert.match(html, /<details(?![^>]*\bopen\b)[^>]*data-key="sec-Ad Campaign"/);
+});
+
+test('ideas show plural-correct votes', () => {
+  const v = { screen: 'game', me: { name: 'x', company: 'A', role: 'CEO' }, clock: { phase: 'ideation', remainingSec: 1 }, wallet: 1000, problem: { title: 'P' }, owned: [],
+    ideation: { picked: null, canPick: true, ideas: [{ id: 'H1', name: 'a', type: 't', description: 'd', votes: 1, mine: false }, { id: 'H2', name: 'b', type: 't', description: 'd', votes: 2, mine: false }] } };
+  const html = rs2(v);
+  assert.match(html, /1 vote</);
+  assert.match(html, /2 votes</);
+});
+
+test('the header is one compact row with who, wallet and clock', () => {
+  const html = rs2(roleShop('CTO'));
+  assert.match(html, /<header class="bar compact">/);
+  assert.match(html, /id="clock"/);
 });

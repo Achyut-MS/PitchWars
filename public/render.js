@@ -1,6 +1,11 @@
 export const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+export const plural = (n, word) => `${n} ${word}${Number(n) === 1 ? '' : 's'}`;
+
+export const renderConnecting = () => '<main><section class="card"><p>Connecting...</p></section></main>';
+export const renderOffline = () => '<p class="offline" role="alert">Offline - reconnecting...</p>';
+
 export const fmtClock = (sec) => {
   const t = Math.max(0, Math.floor(Number(sec) || 0));
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
@@ -24,10 +29,9 @@ export function renderLogin(error) {
 
 function header(v) {
   const { me, clock, wallet } = v;
-  return `<header class="bar">
-  <span class="who">Company ${esc(me.company)}: ${esc(me.role)}</span>
-  <span class="phase">${esc(clock.phase)}</span>
-  <span class="wallet">${esc(wallet)} coins</span>
+  return `<header class="bar compact">
+  <span class="who">Company ${esc(me.company)}: ${esc(me.role)} <small class="phase">${esc(clock.phase)}</small></span>
+  <span class="wallet">${esc(plural(wallet, 'coin'))}</span>
   <span id="clock">${fmtClock(clock.remainingSec)}</span>
 </header>`;
 }
@@ -48,7 +52,7 @@ function ideation(v) {
   const { ideas, picked, canPick } = v.ideation;
   const cards = ideas.map((i) => `<li class="idea${i.mine ? ' mine' : ''}">
     <h3>${esc(i.name)} <small>${esc(i.type)}</small></h3><p>${esc(i.description)}</p>
-    <p class="votes">${esc(i.votes)} votes</p>
+    <p class="votes">${esc(plural(i.votes, 'vote'))}</p>
     ${picked ? '' : send(i.mine ? 'Your vote' : 'Vote', { type: 'vote', ideaId: i.id })}
     ${canPick ? send('Pick this idea', { type: 'pick', ideaId: i.id }, 'primary') : ''}
   </li>`).join('');
@@ -64,7 +68,7 @@ function catalogItem(it) {
       it.choices.forEach((c, n) => buy.push(send(c, { type: 'request', itemId: it.id, choice: String(n + 1) })));
     } else buy.push(send(`Request for ${it.price}`, { type: 'request', itemId: it.id }));
   }
-  if (it.canRecommend) {
+  if (it.canRecommend && it.state === 'available') {
     if (it.choices) {
       it.choices.forEach((c, n) => buy.push(send(`Recommend ${c}`, { type: 'recommend', itemId: it.id, choice: String(n + 1) })));
     } else buy.push(send('Recommend', { type: 'recommend', itemId: it.id }));
@@ -92,11 +96,24 @@ function awaitingList(v) {
   return `<section class="card"><h3>Features waiting for you</h3>${rows ? `<ul>${rows}</ul>` : '<p class="muted">None.</p>'}</section>`;
 }
 
+const HINTS = {
+  CTO: 'Request features for the CEO to approve',
+  CEO: 'Approve features and recommend items for the CFO',
+  CFO: 'Approve or reject the oldest request first',
+  CMO: 'Request target user, brand, tagline and ads for the CFO to approve',
+  COO: 'Request operations items for the CFO to approve',
+};
+
 function shop(v) {
   const sections = [...new Set(v.shop.catalog.map((i) => i.section))];
-  const lists = sections.map((s) => `<section class="card"><h3>${esc(s)}</h3><ul>${v.shop.catalog.filter((i) => i.section === s).map(catalogItem).join('')}</ul></section>`).join('');
+  const lists = sections.map((s) => {
+    const items = v.shop.catalog.filter((i) => i.section === s);
+    const own = items.some((i) => i.role === v.me.role);
+    return `<details class="card" data-key="${esc('sec-' + s)}"${own ? ' open' : ''}><summary>${esc(s)}</summary><ul>${items.map(catalogItem).join('')}</ul></details>`;
+  }).join('');
   const mine = v.shop.mine.length ? `<section class="card"><h3>My requests</h3><ul>${v.shop.mine.map((r) => `<li>${esc(r.label)}: ${esc(r.status)}</li>`).join('')}</ul></section>` : '';
   return `${header(v)}<main>
+  <p class="hint">${esc(HINTS[v.me.role] ?? '')}</p>
   ${v.idea ? `<p class="product">Product: ${esc(v.idea.name)}</p>` : ''}
   ${awaitingList(v)}${queueList(v)}${mine}${lists}
   <section class="card"><h3>Our product</h3>${ownedPanel(v)}</section></main>`;
@@ -106,7 +123,7 @@ function summary(v) {
   const s = v.summary;
   return `${header(v)}<main><section class="card"><h2>${esc(s.idea?.name ?? 'No idea picked')}</h2>
   ${s.owned.length ? `<ul class="owned">${s.owned.map((o) => `<li>${esc(o.label)} <span>${esc(o.charged)}</span></li>`).join('')}</ul>` : '<p class="muted">Nothing was bought.</p>'}
-  <p class="big">${esc(s.wallet)} coins left</p></section></main>`;
+  <p class="big">${esc(plural(s.wallet, 'coin'))} left</p></section></main>`;
 }
 
 export function renderScreen(v) {
