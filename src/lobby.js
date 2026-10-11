@@ -45,6 +45,9 @@ export function startGame(db, problemId, now) {
     const gameId = db
       .prepare('INSERT INTO games (problem_id, started_at, heartbeat_at) VALUES (?, ?, ?)')
       .run(problemId, now, now).lastInsertRowid;
+    const wallet = db.prepare('INSERT INTO company_state (game_id, company, wallet) VALUES (?, ?, 1000)');
+    wallet.run(gameId, 'A');
+    wallet.run(gameId, 'B');
     const setGame = db.prepare("UPDATE participants SET status='in_game', game_id=? WHERE admission_id=?");
     for (const p of seated) {
       setGame.run(gameId, p.admission_id);
