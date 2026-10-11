@@ -65,7 +65,7 @@ function ideation(v) {
   <ul class="ideas">${cards}</ul></main>`;
 }
 
-function catalogItem(it, locked = false) {
+function catalogItem(it, locked = false, sale = false) {
   const buy = [];
   if (it.canRequest) {
     if (it.choices) {
@@ -78,17 +78,18 @@ function catalogItem(it, locked = false) {
     } else buy.push(send('Recommend', { type: 'recommend', itemId: it.id }, '', locked));
   }
   return `<li class="item ${esc(it.state)}"><span class="name">${esc(it.label)}</span>
-    <span class="cost"><span class="price">${esc(it.price)}</span>${it.price != null && it.cost != null && Number(it.price) < Number(it.cost) ? ` <s class="list">${esc(it.cost)}</s>` : ''}</span>
+    <span class="cost"><span class="price">${esc(it.price)}</span>${sale && it.price != null && it.cost != null && Number(it.price) < Number(it.cost) ? ` <s class="list">${esc(it.cost)}</s>` : ''}</span>
     ${it.state === 'owned' ? '<em>Owned</em>' : it.state === 'requested' ? '<em>Requested</em>' : it.state === 'wait' ? `<em>${esc(it.note)}</em>` : ''}
     ${buy.join('')}</li>`;
 }
 
 function queueList(v) {
+  const lk = !!(v.shop && v.shop.locked);
   const q = v.shop && v.shop.queue;
   if (!Array.isArray(q)) return '';
   const rows = q.map((r) => `<li class="req${r.head ? ' head' : ''}"><span>${esc(r.label)} for ${esc(r.price)}</span>
     <small>from ${esc(r.by)}${r.recommended ? ' (CEO recommends)' : ''}</small>
-    ${r.head && v.me.role === 'CFO' ? send('Approve', { type: 'cfo_decide', requestId: r.id, approve: true }, 'primary') + send('Reject', { type: 'cfo_decide', requestId: r.id, approve: false }) : ''}</li>`).join('');
+    ${r.head && v.me.role === 'CFO' ? send('Approve', { type: 'cfo_decide', requestId: r.id, approve: true }, 'primary', lk) + send('Reject', { type: 'cfo_decide', requestId: r.id, approve: false }, '', lk) : ''}</li>`).join('');
   return `<section class="card"><h3>CFO queue</h3>${rows ? `<ul>${rows}</ul>` : '<p class="muted">No requests waiting.</p>'}</section>`;
 }
 
@@ -113,18 +114,20 @@ export function shopBody(v) {
   const catalog = Array.isArray(sh.catalog) ? sh.catalog : [];
   const sections = [...new Set(catalog.map((i) => i.section))];
   const shopClosed = v.clock.phase === 'competition' && !!v.shop && sh.open === false;
+  const saleOn = !!(sh.sale && sh.sale.active);
+  const saleBadge = saleOn ? `<p class="sale-badge" role="status">Sale! ${esc(num(sh.sale.endsInSec))} s left</p>` : '';
   const lock = typeof sh.locked === 'string' && sh.locked ? sh.locked : '';
   const lists = sections.map((s) => {
     const items = catalog.filter((i) => i.section === s);
     const own = items.some((i) => i.role === v.me.role);
-    return `<details class="card" data-key="${esc('sec-' + s)}"${own ? ' open' : ''}><summary>${esc(s)}</summary><ul>${items.map((i) => catalogItem(i, !!lock || shopClosed)).join('')}</ul></details>`;
+    return `<details class="card" data-key="${esc('sec-' + s)}"${own ? ' open' : ''}><summary>${esc(s)}</summary><ul>${items.map((i) => catalogItem(i, !!lock || shopClosed, saleOn)).join('')}</ul></details>`;
   }).join('');
   const mineRows = Array.isArray(sh.mine) ? sh.mine : [];
   const mine = mineRows.length ? `<section class="card"><h3>My requests</h3><ul>${mineRows.map((r) => `<li>${esc(r.label)}: ${esc(r.status)}</li>`).join('')}</ul></section>` : '';
   const closed = v.clock.phase === 'competition' && v.shop && sh.open === false ? '<p class="shop-closed" role="status">Shop closed: no new requests. Open requests can still be decided.</p>' : '';
   return `<main>
   <p class="hint">${esc(HINTS[v.me.role] ?? '')}</p>
-  ${lock ? `<p class="locked" role="status">${esc(lock)}</p>` : ''}${closed}
+  ${saleBadge}${lock ? `<p class="locked" role="status">${esc(lock)}</p>` : ''}${closed}
   ${v.idea ? `<p class="product">Product: ${esc(v.idea.name)}</p>` : ''}
   ${awaitingList(v)}${queueList(v)}${mine}${lists}
   <section class="card"><h3>Our product</h3>${ownedPanel(v)}</section></main>`;
@@ -146,10 +149,11 @@ function ratesPanel(v, c) {
   if (!r) return '';
   const role = v.me.role;
   const mine = ['CTO', 'CMO', 'COO'].includes(role) ? num(r[role]) : null;
-  const level = mine == null ? '' : mine >= MAX_RATE ? 3 : mine >= 20 ? 2 : mine > 0 ? 1 : 0;
+  const lv = c.level && c.level[role];
+  const level = Number.isFinite(Number(lv)) && lv != null ? (Number.isInteger(Number(lv)) ? String(Number(lv)) : Number(lv).toFixed(1)) : '';
   const meter = mine == null ? '' : `<div id="sales-meter" class="meter" role="meter" aria-valuemin="0" aria-valuemax="${MAX_RATE}" aria-valuenow="${esc(mine)}" aria-label="Your sales">
   <div class="fill" style="width:${Math.min(100, Math.round((mine / MAX_RATE) * 100))}%"></div></div>
-  <p>Your sales: <b class="my-rate">${esc(mine)}</b> coins per minute <small class="level">Level ${esc(level)}</small></p>`;
+  <p>Your sales: <b class="my-rate">${esc(mine)}</b> coins per minute ${level === '' ? '' : `<small class="level">Level ${esc(level)}</small>`}</p>`;
   return `<section class="card rates"><h3>Sales per minute</h3>${meter}
   <ul><li>CTO <b>${esc(num(r.CTO))}</b></li><li>CMO <b>${esc(num(r.CMO))}</b></li><li>COO <b>${esc(num(r.COO))}</b></li></ul>
   <p class="big">${esc(num(r.total))} coins per minute</p></section>`;

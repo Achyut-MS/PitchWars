@@ -4,6 +4,7 @@ import { renderScreen, clockClass } from '../public/render.js';
 import { createConfirm } from '../public/glue.js';
 import { makeRunning, give, toCompetition, atSec } from './helpers.js';
 import { viewFor } from '../src/views.js';
+import { requestItem } from '../src/shop.js';
 import { launchAttack } from '../src/attacks.js';
 import { triggerMarketEvent } from '../src/marketEvents.js';
 
@@ -27,7 +28,8 @@ test('every role sees its own sales meter, rate and level, plus wallet', () => {
     assert.match(h, /per minute/);
   }
   assert.match(renderScreen(view('CMO')), /class="my-rate">13</);
-  assert.match(renderScreen(view('CTO')), /Level/);
+  assert.match(renderScreen(view('CTO', { level: { CTO: 1.5 } })), /Level 1\.5/);
+  assert.match(renderScreen(view('COO', { level: { COO: 2 } })), /Level 2</);
   assert.match(renderScreen(view('CFO')), /39\.5/);
 });
 
@@ -49,7 +51,9 @@ test('countdown red state at 10 seconds or less and banners', () => {
 });
 
 test('open shop with a sale shows sale price against list price consistently', () => {
-  const h = renderScreen(view('CTO', {}, { shop: { open: true, catalog: [item({ price: 75, cost: 100 })], mine: [] } }));
+  const h = renderScreen(view('CTO', {}, { shop: { open: true, sale: { active: true, mult: 0.75, endsInSec: 40 }, catalog: [item({ price: 75, cost: 100 })], mine: [] } }));
+  assert.match(h, /Sale! 40 s left/);
+  assert.equal(renderScreen(view('CTO', {}, { shop: { open: true, sale: null, catalog: [item({ price: 60, cost: 100 })], mine: [] } })).includes('class="list"'), false);
   assert.match(h, /class="price">75</);
   assert.match(h, /<s class="list">100</);
   const plain = renderScreen(view('CTO'));
@@ -151,4 +155,20 @@ test('closed shop with open requests: CFO and CEO can still decide, new requests
   assert.match(ceo, /Shop closed/);
   assert.equal(/disabled/.test(ceo.split('"type":"cfo_decide"')[0] ? ceo.split('"type":"ceo_decide"')[1].split('</button>')[0] : ''), false);
   assert.match(ceo.split('"type":"recommend"')[1].split('</button>')[0], /disabled/);
+});
+
+test('real views: a cfo_lock disables the CFO decide buttons, a cto_lock disables CTO requests', () => {
+  const h = toCompetition(makeRunning());
+  requestItem(h.ctx, h.game(), h.seat.A.CTO, 'HC01');
+  launchAttack(h.ctx, h.game(), h.seat.B.CEO, 'bank_freeze', () => 0);
+  const cfo = renderScreen(viewFor(h.ctx, h.seat.A.CFO));
+  assert.match(cfo, /Bank systems are under maintenance/);
+  assert.match(cfo, /"type":"cfo_decide"/);
+  for (const a of ['true', 'false']) assert.match(cfo.split(`"approve":${a}`)[1].split('</button>')[0], /disabled/);
+  atSec(h, 1000); // lock over
+  const h2 = toCompetition(makeRunning());
+  launchAttack(h2.ctx, h2.game(), h2.seat.B.CEO, 'supplier_delay', () => 0);
+  const cto = renderScreen(viewFor(h2.ctx, h2.seat.A.CTO));
+  assert.match(cto, /Supplier systems are down/);
+  assert.match(cto.split('"type":"request"')[1].split('</button>')[0], /disabled/);
 });

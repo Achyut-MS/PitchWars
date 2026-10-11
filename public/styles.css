@@ -49,3 +49,4 @@ label select { display: block; margin-top: 2px; }
 .meter .fill { height: 100%; background: var(--accent, #08f); }
 .shop-closed, .locked { padding: 8px 16px; font-weight: 700; }
 .attack-btn.armed { outline: 3px solid var(--warn, #c00); }
+.sale-badge { display: inline-block; margin: 8px 16px; padding: 2px 10px; border-radius: 12px; background: var(--accent, #08f); color: #fff; font-weight: 700; }
