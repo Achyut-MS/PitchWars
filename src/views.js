@@ -7,6 +7,9 @@ import { shopOpenAt, warningFor } from './warnings.js';
 import { saleMultiplier } from './marketEvents.js';
 import { itemLabel } from './labels.js';
 import { stuckPhases } from './director.js';
+import { ATTACKS, attackByKey, attackCooldownUntil, hasShield } from './attacks.js';
+import { effectiveRates } from './rates.js';
+import { latestHint } from './hints.js';
 
 const ADDERS = ['CTO', 'CMO', 'COO'];
 
@@ -89,6 +92,41 @@ function shopView(ctx, game, p, idea, phase, cache) {
   return shop;
 }
 
+const round1 = (n) => Math.round(n * 10) / 10;
+
+// Per-company part of the competition block, computed once per push.
+function companyCompetition(ctx, game, company, t, cache) {
+  const key = `${game.id}:${company}:comp`;
+  if (cache && cache.has(key)) return cache.get(key);
+  const r = effectiveRates(ctx, game, company, t);
+  const notices = prep(ctx.db, 'SELECT role, text FROM notices WHERE game_id=? AND company=? AND ts <= ? AND ? < until ORDER BY id').all(game.id, company, t, t);
+  const out = { rates: { CTO: round1(r.CTO), CMO: round1(r.CMO), COO: round1(r.COO), total: round1(r.total) }, notices };
+  if (cache) cache.set(key, out);
+  return out;
+}
+
+function competitionView(ctx, game, p, clock, cache) {
+  const t = ctx.now();
+  const shared = companyCompetition(ctx, game, p.company, t, cache);
+  const notices = shared.notices.filter((n) => n.role == null || n.role === p.role).map((n) => n.text);
+  const hint = ['CTO', 'CMO', 'COO'].includes(p.role) ? latestHint(ctx.db, game.id, p.company, p.role, t) : null;
+  let shield = null;
+  if (p.role === 'COO') {
+    const owns = !!prep(ctx.db, "SELECT 1 FROM owned WHERE game_id=? AND company=? AND family='O06'").get(game.id, p.company);
+    shield = { owned: owns, used: owns && !hasShield(ctx.db, game.id, p.company) };
+  }
+  let attack = null;
+  if (p.role === 'CEO') {
+    const cooldownLeftSec = Math.max(0, Math.ceil((attackCooldownUntil(ctx.db, game.id, p.company) - t) / 1000));
+    const lockedReason = clock.remainingSec <= 60 ? 'last minute' : cooldownLeftSec > 0 ? 'cooldown' : null;
+    // Own launches only: name, cost and whether it landed; nothing of the target's internals.
+    const launches = prep(ctx.db, 'SELECT key, cost, launched_at, blocked FROM attacks WHERE game_id=? AND attacker=? ORDER BY id').all(game.id, p.company)
+      .map((a) => ({ name: attackByKey(a.key)?.name ?? a.key, cost: a.cost, at: a.launched_at, status: a.blocked ? 'blocked' : 'landed' }));
+    attack = { options: ATTACKS.map(({ key, name, cost }) => ({ key, name, cost })), cooldownLeftSec, lockedReason, launches };
+  }
+  return { rates: shared.rates, notices, hint: hint && { text: hint.text }, shield, attack };
+}
+
 export function viewFor(ctx, admissionId, cache = null) {
   const p = prep(ctx.db, 'SELECT * FROM participants WHERE admission_id = ?').get(admissionId);
   if (!p) return { screen: 'unknown' };
@@ -110,16 +148,17 @@ export function viewFor(ctx, admissionId, cache = null) {
         id: i.id, type: i.type, name: i.name, description: i.description,
         votes: counts[i.id] ?? 0, mine: !!mineVote && mineVote.idea_id === i.id,
       })),
-      picked: cs.idea_id,
-      canPick: p.role === 'CEO' && !cs.idea_id,
+      picked: cs?.idea_id ?? null,
+      canPick: p.role === 'CEO' && !cs?.idea_id,
     };
   }
   return {
-    me, screen: 'game', clock: warningFor(clock) ? { ...clock, warning: warningFor(clock) } : clock, problem, wallet: cs.wallet,
+    me, screen: 'game', clock: warningFor(clock) ? { ...clock, warning: warningFor(clock) } : clock, problem, wallet: cs?.wallet ?? 0,
     idea: idea && { id: idea.id, type: idea.type, name: idea.name, description: idea.description },
     ideation,
     shop: clock.phase === 'shop' || clock.phase === 'competition' ? shopView(ctx, game, p, idea, clock.phase, cache) : null,
     owned: ownedList(ctx, game, p.company, idea),
+    ...(clock.phase === 'competition' ? { competition: competitionView(ctx, game, p, clock, cache) } : {}),
     summary: clock.phase === 'summary' ? summaryCard(ctx, game, p.company) : null,
   };
 }
@@ -133,9 +172,9 @@ export function organizerView(ctx, cache = null) {
     const cs = companyState(ctx.db, game.id, company);
     const idea = ideaOf(ctx, game, company);
     return {
-      wallet: cs.wallet,
+      wallet: cs?.wallet ?? 0,
       idea: idea && { id: idea.id, type: idea.type, name: idea.name },
-      pickSource: cs.pick_source,
+      pickSource: cs?.pick_source ?? null,
       votes: tally(ctx.db, game.id, company),
       owned: ownedList(ctx, game, company, idea),
       queue: companyShop(ctx, game, company, idea, phaseAt(game, ctx.now()).phase, cache).queue,
@@ -144,6 +183,13 @@ export function organizerView(ctx, cache = null) {
   };
   return {
     screen: 'organizer', participants, problems,
-    game: { id: game.id, problemId: game.problemId, stuck: stuckPhases(ctx.db, game.id), clock: phaseAt(game, ctx.now()), companies: { A: panel('A'), B: panel('B') } },
+    game: { id: game.id, problemId: game.problemId, stuck: stuckPhases(ctx.db, game.id), clock: phaseAt(game, ctx.now()), companies: { A: panel('A'), B: panel('B') },
+      attacks: prep(ctx.db, 'SELECT * FROM attacks WHERE game_id=? ORDER BY id').all(game.id).map((a) => ({
+        id: a.id, attacker: a.attacker, victim: a.victim, name: attackByKey(a.key)?.name ?? a.key,
+        cost: a.cost, at: a.launched_at, endsAt: a.end_at, blocked: !!a.blocked, by: a.launched_by,
+      })),
+      eventUsed: (prep(ctx.db, 'SELECT key FROM market_events WHERE game_id=?').get(game.id) || {}).key ?? null,
+      injectionUsed: (() => { const i = prep(ctx.db, 'SELECT company, coins FROM injections WHERE game_id=?').get(game.id); return i ? { company: i.company, coins: i.coins } : null; })(),
+    },
   };
 }
