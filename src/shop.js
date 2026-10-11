@@ -2,6 +2,7 @@ import { logEvent } from './events.js';
 import { phaseAt } from './phases.js';
 import { companyState, ideaOf, playerIn } from './state.js';
 import { itemLabel } from './labels.js';
+import { isLocked } from './attacks.js';
 
 export const WALLET_FLOOR = -200;
 export const RETRY_AFTER_MS = 60_000;
@@ -79,6 +80,7 @@ export function requestItem(ctx, game, admissionId, itemId, choice = null) {
   if (!ADDERS.includes(p.role)) throw new Error('only the CTO, CMO and COO can add items; the CEO can recommend');
   const item = ctx.data.item(itemId);
   if (item && item.role !== p.role) throw new Error('that item is not in your section');
+  if (p.role === 'CTO' && isLocked(ctx, game, p.company, 'cto_lock')) throw new Error('Supplier systems are down for maintenance');
   const phase = validate(ctx, game, p.company, item, choice);
   const status = p.role === 'CTO' && item.section === 'Core Features' ? 'awaiting_ceo' : 'pending';
   return insert(ctx, game, p, item, choice, status, 0, phase);
@@ -128,6 +130,7 @@ export function cfoDecide(ctx, game, admissionId, requestId, approve) {
   const p = playerIn(ctx.db, game.id, admissionId);
   if (!p) throw new Error('not in this game');
   if (p.role !== 'CFO') throw new Error('only the CFO can decide');
+  if (isLocked(ctx, game, p.company, 'cfo_lock')) throw new Error('Bank systems are under maintenance');
   requireOpen(ctx, game);
   // Everything is re-read and checked inside the transaction so a repeat click
   // or a stale request cannot charge twice or break the family rule.
