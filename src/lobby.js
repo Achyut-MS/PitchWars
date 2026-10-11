@@ -4,7 +4,7 @@ import { normId } from './roster.js';
 export const ROLES = ['CEO', 'CTO', 'CFO', 'CMO', 'COO'];
 const COMPANIES = ['A', 'B'];
 
-export function assign(db, admissionId, company, role) {
+export function assign(db, admissionId, company, role, now = Date.now()) {
   if (!COMPANIES.includes(company)) throw new Error('company must be A or B');
   if (!ROLES.includes(role)) throw new Error('unknown role');
   const id = normId(admissionId);
@@ -17,7 +17,10 @@ export function assign(db, admissionId, company, role) {
     )
     .get(company, role, id);
   if (taken) throw new Error(`${company} already has a ${role}`);
-  db.prepare('UPDATE participants SET company = ?, role = ? WHERE admission_id = ?').run(company, role, id);
+  db.transaction(() => {
+    db.prepare('UPDATE participants SET company = ?, role = ? WHERE admission_id = ?').run(company, role, id);
+    logEvent(db, { ts: now, admissionId: id, type: 'assign', payload: { company, role } });
+  })();
 }
 
 export function unassign(db, admissionId, now = Date.now()) {

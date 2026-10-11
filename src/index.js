@@ -31,6 +31,13 @@ export async function bootstrap({ dbFile, organizerPassword, port, now = Date.no
       console.error('tick failed:', err);
     }
   }, 1000);
+  const ping = setInterval(() => {
+    try {
+      app.pingAll();
+    } catch (err) {
+      console.error('ping failed:', err);
+    }
+  }, 30_000);
   const beat = setInterval(() => {
     try {
       const g = activeGame(db);
@@ -46,6 +53,7 @@ export async function bootstrap({ dbFile, organizerPassword, port, now = Date.no
     async stop() {
       clearInterval(tick);
       clearInterval(beat);
+      clearInterval(ping);
       app.wss.close();
       await new Promise((r) => app.server.close(r));
       db.close();

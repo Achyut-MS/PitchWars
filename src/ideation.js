@@ -89,3 +89,13 @@ export function resolveIdeation(ctx, game, rng = Math.random) {
       payload: { company, ideaId: chosen, tied: candidates.length > 1, votes: counts } });
   }
 }
+
+// Organizer action: end ideation now. The seconds saved move to the Shop.
+export function endIdeationNow(ctx, game) {
+  return ctx.db.transaction(() => {
+    const g = freshGame(ctx, game);
+    const next = endIdeationEarly(g, ctx.now()); // throws if ideation is not running
+    ctx.db.prepare('UPDATE games SET ideation_saved_sec = ? WHERE id = ?').run(next.ideationSavedSec, g.id);
+    logEvent(ctx.db, { ts: ctx.now(), gameId: g.id, type: 'ideation_end_early', payload: { savedSec: next.ideationSavedSec - (g.ideationSavedSec || 0), by: 'organizer' } });
+  }).immediate();
+}
