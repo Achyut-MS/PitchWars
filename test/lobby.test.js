@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { openDb } from '../src/db.js';
 import { addParticipant } from '../src/roster.js';
-import { ROLES, assign, startGame, endGame } from '../src/lobby.js';
+import { ROLES, assign, unassign, startGame, endGame } from '../src/lobby.js';
 
 function seeded(n = 10) {
   const db = openDb();
@@ -109,4 +109,36 @@ test('endGame on an unknown game id throws and the real game keeps running', () 
   assert.throws(() => endGame(db, gid + 99, 5000), /unknown game/);
   assert.equal(db.prepare('SELECT ended_at FROM games WHERE id = ?').get(gid).ended_at, null);
   assert.deepEqual(new Set(status(db)), new Set(['in_game']));
+});
+
+test('unassign frees the seat for another lobby participant and logs an event', () => {
+  const db = seeded();
+  assign(db, 'S0', 'A', 'CEO');
+  unassign(db, 's0');
+  const p = db.prepare("SELECT company, role FROM participants WHERE admission_id='S0'").get();
+  assert.deepEqual(p, { company: null, role: null });
+  assign(db, 'S1', 'A', 'CEO');
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM events WHERE type='unassign' AND admission_id='S0'").get().n, 1);
+});
+
+test('a half-seated lobby after unassign cannot start', () => {
+  const db = seeded();
+  fillAll(db);
+  unassign(db, 'S3');
+  assert.throws(() => startGame(db, 'p1', 1000), /all five roles/);
+});
+
+test('unassign of an in_game participant throws and changes nothing', () => {
+  const db = seeded();
+  fillAll(db);
+  startGame(db, 'p1', 1000);
+  const before = db.prepare('SELECT * FROM participants ORDER BY admission_id').all();
+  const ev = db.prepare('SELECT COUNT(*) AS n FROM events').get().n;
+  assert.throws(() => unassign(db, 'S0'), /not in the lobby/);
+  assert.deepEqual(db.prepare('SELECT * FROM participants ORDER BY admission_id').all(), before);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM events').get().n, ev);
+});
+
+test('unassign of an unknown id throws', () => {
+  assert.throws(() => unassign(seeded(), 'NOPE'), /unknown participant/);
 });

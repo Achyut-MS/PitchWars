@@ -20,6 +20,17 @@ export function assign(db, admissionId, company, role) {
   db.prepare('UPDATE participants SET company = ?, role = ? WHERE admission_id = ?').run(company, role, id);
 }
 
+export function unassign(db, admissionId) {
+  const id = normId(admissionId);
+  const p = db.prepare('SELECT status FROM participants WHERE admission_id = ?').get(id);
+  if (!p) throw new Error('unknown participant');
+  if (p.status !== 'lobby') throw new Error('participant is not in the lobby');
+  db.transaction(() => {
+    db.prepare('UPDATE participants SET company = NULL, role = NULL WHERE admission_id = ?').run(id);
+    logEvent(db, { ts: Date.now(), admissionId: id, type: 'unassign' });
+  })();
+}
+
 export function startGame(db, problemId, now) {
   if (db.prepare('SELECT 1 FROM games WHERE ended_at IS NULL').get()) {
     throw new Error('a game is already running');
