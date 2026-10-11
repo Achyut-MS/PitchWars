@@ -51,3 +51,17 @@ export function redrawDecision({ changed, pointerDown, downAt = 0, now, maxDefer
   if (pointerDown && now - downAt < maxDeferMs) return { action: 'defer', wait: downAt + maxDeferMs - now };
   return { action: 'draw', wait: 0 };
 }
+
+// Two-step confirm for dangerous buttons: the first tap arms, a second tap on the same key within windowMs confirms.
+export function createConfirm(windowMs = 5000) {
+  let key = null;
+  let at = -Infinity;
+  return {
+    tap(k, now) {
+      if (k === key && now - at <= windowMs) { key = null; return 'confirmed'; }
+      key = k; at = now;
+      return 'armed';
+    },
+    reset() { key = null; },
+  };
+}

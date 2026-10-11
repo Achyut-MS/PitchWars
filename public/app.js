@@ -1,10 +1,11 @@
-import { renderLogin, renderScreen, renderConnecting, renderOffline, fmtClock } from './render.js';
-import { humanError, viewKey, createSendGuard, redrawDecision } from './glue.js';
+import { renderLogin, renderScreen, renderConnecting, renderOffline, fmtClock, clockClass } from './render.js';
+import { humanError, viewKey, createSendGuard, redrawDecision, createConfirm } from './glue.js';
 
 const root = document.getElementById('app');
 const toast = document.getElementById('toast');
 const conn = document.getElementById('conn');
 const guard = createSendGuard(600);
+const confirmAttack = createConfirm(5000);
 let ws = null;
 let id = null;
 let retry = 0;
@@ -93,12 +94,15 @@ function onMessage(m) {
     onState(m.view);
   } else if (m.type === 'tick') {
     const c = document.getElementById('clock');
-    if (c && Number.isFinite(m.remainingSec)) c.textContent = fmtClock(m.remainingSec);
+    if (c && Number.isFinite(m.remainingSec)) { c.textContent = fmtClock(m.remainingSec); c.className = clockClass(m.remainingSec); }
     // The phase moved on without a push: ask for the fresh screen once per phase.
     if (typeof m.phase === 'string' && m.phase !== shownPhase && m.phase !== syncedFor) {
       syncedFor = m.phase;
       sendMsg({ type: 'sync' });
     }
+  } else if (m.type === 'attack_result') {
+    guard.release();
+    showToast(m.blocked ? 'Attack blocked' : 'Attack launched');
   } else if (m.type === 'error') {
     const e = typeof m.error === 'string' ? m.error : '';
     guard.release();
@@ -151,6 +155,16 @@ document.addEventListener('click', (e) => {
   const b = e.target.closest && e.target.closest('[data-send]');
   if (!b) return;
   if (!online) { showToast('Offline - reconnecting. Your tap was not sent.'); return; }
+  if (b.classList.contains('attack-btn')) {
+    // Dangerous: the first tap only arms the button, the second tap launches.
+    if (confirmAttack.tap(b.dataset.send, Date.now()) === 'armed') {
+      const label = b.textContent;
+      b.textContent = 'Tap again to launch';
+      b.classList.add('armed');
+      setTimeout(() => { if (b.isConnected && b.classList.contains('armed')) { b.textContent = label; b.classList.remove('armed'); } }, 5000);
+      return;
+    }
+  }
   if (!guard.allow(b.dataset.send, Date.now())) return;
   b.disabled = true;
   if (!sendMsg(b.dataset.send)) { b.disabled = false; guard.release(); showToast('Offline - reconnecting. Your tap was not sent.'); }
