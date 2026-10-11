@@ -47,3 +47,75 @@ test('unknown ids are undefined, not an error', () => {
   assert.equal(data.item('NOPE'), undefined);
   assert.deepEqual(data.ideasFor(99), []);
 });
+
+// --- robustness against hand-edited data files ---
+import { mkdtempSync, cpSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+function withData(file, edit) {
+  const dir = mkdtempSync(join(tmpdir(), 'data-'));
+  cpSync('data', dir, { recursive: true });
+  writeFileSync(join(dir, file), edit(readFileSync(join(dir, file), 'utf8')));
+  return dir;
+}
+const lines = (t) => t.split(/\r?\n/);
+
+test('the shipped data files load without error', () => {
+  assert.doesNotThrow(() => loadData('data'));
+});
+
+test('parseCsv strips a leading UTF-8 BOM', () => {
+  assert.deepEqual(parseCsv('﻿a,b\n1,2\n'), [{ a: '1', b: '2' }]);
+});
+
+test('parseCsv throws on an unterminated quote', () => {
+  assert.throws(() => parseCsv('a,b\n1,"oops\n2,3\n'), /unterminated quote.*line 2/i);
+});
+
+test('a short row is rejected with file and line', () => {
+  const dir = withData('shop_catalog.csv', (t) => { const l = lines(t); l[3] = 'F01-P,CTO'; return l.join('\n'); });
+  assert.throws(() => loadData(dir), /shop_catalog\.csv.*line 4/);
+});
+
+test('a long row is rejected with file and line', () => {
+  const dir = withData('idea_options.csv', (t) => { const l = lines(t); l[2] += ',extra'; return l.join('\n'); });
+  assert.throws(() => loadData(dir), /idea_options\.csv.*line 3/);
+});
+
+test('a missing required column is rejected', () => {
+  const dir = withData('shop_catalog.csv', (t) => t.replace('cost_coins', 'price'));
+  assert.throws(() => loadData(dir), /shop_catalog\.csv.*cost_coins/);
+});
+
+test('blank or non-numeric cost is rejected', () => {
+  for (const bad of ['', 'abc']) {
+    const dir = withData('shop_catalog.csv', (t) => { const l = lines(t); const c = l[1].split(','); c[6] = bad; l[1] = c.join(','); return l.join('\n'); });
+    assert.throws(() => loadData(dir), /shop_catalog\.csv.*line 2.*cost_coins/);
+  }
+});
+
+test('duplicate shop item id and duplicate idea id are rejected', () => {
+  const d1 = withData('shop_catalog.csv', (t) => { const l = lines(t); l[2] = l[2].replace('F01-S', 'F01-B'); return l.join('\n'); });
+  assert.throws(() => loadData(d1), /shop_catalog\.csv.*line 3.*duplicate/i);
+  const d2 = withData('idea_options.csv', (t) => { const l = lines(t); l[3] = l[3].replace(',H3,', ',H1,'); return l.join('\n'); });
+  assert.throws(() => loadData(d2), /idea_options\.csv.*line 4.*duplicate/i);
+});
+
+test('an idea with a blank risk is rejected; a bad idea_id prefix is rejected', () => {
+  const d1 = withData('idea_options.csv', (t) => { const l = lines(t); const c = l[1].split(','); c[6] = ''; l[1] = c.join(','); return l.join('\n'); });
+  assert.throws(() => loadData(d1), /idea_options\.csv.*line 2.*risk_3/);
+  const d2 = withData('idea_options.csv', (t) => { const l = lines(t); l[1] = l[1].replace(',H1,', ',X1,'); return l.join('\n'); });
+  assert.throws(() => loadData(d2), /idea_options\.csv.*line 2.*idea_id/);
+});
+
+test('problems.json ids must be unique numbers', () => {
+  const d1 = withData('problems.json', (t) => t.replace('"id": 2,', '"id": 1,'));
+  assert.throws(() => loadData(d1), /problems\.json.*duplicate/i);
+  const d2 = withData('problems.json', (t) => t.replace('"id": 2,', '"id": "two",'));
+  assert.throws(() => loadData(d2), /problems\.json.*number/i);
+});
+
+test('ideasFor coerces its argument with Number()', () => {
+  assert.equal(data.ideasFor('1').length, 6);
+});
