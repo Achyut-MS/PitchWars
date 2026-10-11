@@ -3,6 +3,7 @@ import { phaseAt } from './phases.js';
 import { companyState, ideaOf, playerIn } from './state.js';
 import { itemLabel } from './labels.js';
 import { isLocked } from './attacks.js';
+import { saleMultiplier } from './marketEvents.js';
 
 export const WALLET_FLOOR = -200;
 export const RETRY_AFTER_MS = 60_000;
@@ -29,7 +30,13 @@ export function blockFromLast(ctx, last, phase) {
 
 export function chargeFor(ctx, game, company, item) {
   const owned = ctx.db.prepare('SELECT item_id FROM owned WHERE game_id=? AND company=? AND family=?').get(game.id, company, item.family);
-  return owned ? item.cost - ctx.data.item(owned.item_id).cost : item.cost;
+  const base = owned ? item.cost - ctx.data.item(owned.item_id).cost : item.cost;
+  return priceWithSale(base, saleMultiplier(ctx.db, game.id, ctx.now()));
+}
+
+// A sale never makes a paid item free or negative.
+export function priceWithSale(base, mult) {
+  return base > 0 ? Math.max(1, Math.round(base * mult)) : Math.max(0, base);
 }
 
 function validate(ctx, game, company, item, choice) {

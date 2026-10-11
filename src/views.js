@@ -2,7 +2,8 @@ import { activeGame } from './persist.js';
 import { phaseAt } from './phases.js';
 import { companyState, ideaOf, ownedRows, prep } from './state.js';
 import { tally } from './ideation.js';
-import { applicable, blockFromLast, isShopOpen, summaryCard } from './shop.js';
+import { applicable, blockFromLast, isShopOpen, summaryCard, priceWithSale } from './shop.js';
+import { saleMultiplier } from './marketEvents.js';
 import { itemLabel } from './labels.js';
 import { stuckPhases } from './director.js';
 
@@ -31,6 +32,7 @@ function companyShop(ctx, game, company, idea, phase, cache) {
   const key = `${game.id}:${company}:${phase}`;
   if (cache && cache.has(key)) return cache.get(key);
   const db = ctx.db;
+  const saleMult = saleMultiplier(db, game.id, ctx.now());
   const pendingRows = prep(db, "SELECT * FROM requests WHERE game_id=? AND company=? AND status='pending' ORDER BY id").all(game.id, company);
   const waitingRows = prep(db, "SELECT * FROM requests WHERE game_id=? AND company=? AND status='awaiting_ceo' ORDER BY id").all(game.id, company);
   const headId = pendingRows.length ? pendingRows[0].id : null;
@@ -59,7 +61,7 @@ function companyShop(ctx, game, company, idea, phase, cache) {
       }
       return {
         id: item.id, name: item.name, label: itemLabel(item, idea), option: item.option, section: item.section, role: item.role,
-        cost: item.cost, price: ownedId ? item.cost - ctx.data.item(ownedId).cost : item.cost, state, note,
+        cost: item.cost, price: priceWithSale(ownedId ? item.cost - ctx.data.item(ownedId).cost : item.cost, saleMult), state, note,
         choices: item.id === 'M02' ? idea.brands : item.id === 'M03' ? idea.taglines : null,
       };
     });
