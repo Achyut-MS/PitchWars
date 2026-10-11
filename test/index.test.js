@@ -24,10 +24,11 @@ test('a restart on the same database file resumes the running game', async () =>
     db1.close();
 
     // Second life: a new process with a wildly different clock.
-    const { app, stop } = await bootstrap({ dbFile, organizerPassword: 'pw', port: 0, now: () => 50_000_000 });
+    const { app, clock, stop } = await bootstrap({ dbFile, organizerPassword: 'pw', port: 0, now: () => 50_000_000 });
     try {
       const g = activeGame(app.db);
-      assert.deepEqual(phaseAt(g, 50_000_000), { phase: 'ideation', remainingSec: 160 });
+      assert.equal(clock.now(), 1_200_000);
+      assert.deepEqual(phaseAt(g, clock.now()), { phase: 'ideation', remainingSec: 160 });
     } finally {
       await stop();
     }
@@ -54,11 +55,12 @@ test('a clock earlier than the last heartbeat still resumes without throwing', a
     const gid = startGame(db1, 1, 1_000_000);
     db1.prepare('UPDATE games SET heartbeat_at = ? WHERE id = ?').run(1_200_000, gid);
     db1.close();
-    const { app, stop } = await bootstrap({ dbFile, organizerPassword: 'pw', port: 0, now: () => 500 });
+    const { app, clock, stop } = await bootstrap({ dbFile, organizerPassword: 'pw', port: 0, now: () => 500 });
     try {
       const g = activeGame(app.db);
       assert.ok(g);
-      assert.ok(Number.isFinite(phaseAt(g, 500).remainingSec));
+      assert.equal(clock.now(), 1_200_000);
+      assert.ok(Number.isFinite(phaseAt(g, clock.now()).remainingSec));
     } finally {
       await stop();
     }
@@ -87,6 +89,15 @@ test('a throw inside the tick or heartbeat callback does not stop either interva
   } finally {
     errors.mock.restore();
     mock.timers.reset();
+    await stop();
+  }
+});
+
+test('bootstrap accepts an injected real clock and exposes the server clock', async () => {
+  const { clock, stop } = await bootstrap({ dbFile: ':memory:', organizerPassword: 'pw', port: 0, real: () => 123 });
+  try {
+    assert.equal(clock.now(), 123);
+  } finally {
     await stop();
   }
 });

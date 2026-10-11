@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb } from './db.js';
+import { createClock } from './clock.js';
 import { createApp } from './server.js';
 import { activeGame, heartbeat, resumeActiveGame } from './persist.js';
 
@@ -14,11 +15,12 @@ export function checkPassword(pw) {
   return { ok: true };
 }
 
-export async function bootstrap({ dbFile, organizerPassword, port, now = Date.now }) {
+export async function bootstrap({ dbFile, organizerPassword, port, now = Date.now, real = now }) {
   if (dbFile !== ':memory:') mkdirSync(dirname(dbFile), { recursive: true });
   const db = openDb(dbFile);
-  resumeActiveGame(db, now());
-  const app = createApp({ db, organizerPassword, now });
+  const clock = createClock({ real });
+  resumeActiveGame(db, clock);
+  const app = createApp({ db, organizerPassword, now: clock.now });
   app.db = db;
   await new Promise((resolve) => app.server.listen(port, '0.0.0.0', resolve));
 
@@ -32,7 +34,7 @@ export async function bootstrap({ dbFile, organizerPassword, port, now = Date.no
   const beat = setInterval(() => {
     try {
       const g = activeGame(db);
-      if (g) heartbeat(db, g.id, now());
+      if (g) heartbeat(db, g.id, clock.now());
     } catch (err) {
       console.error('heartbeat failed:', err);
     }
@@ -40,6 +42,7 @@ export async function bootstrap({ dbFile, organizerPassword, port, now = Date.no
 
   return {
     app,
+    clock,
     async stop() {
       clearInterval(tick);
       clearInterval(beat);
