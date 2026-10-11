@@ -6,6 +6,7 @@ import * as pipes from './pipes.js';
 import * as shikaku from './shikaku.js';
 import * as lits from './lits.js';
 
-export const PUZZLES = { queens, sets, tower, mosaic, pipes, shikaku, lits };
+// Plain (mutable) objects, so tests can stub a generator; module namespaces are frozen.
+export const PUZZLES = Object.fromEntries(Object.entries({ queens, sets, tower, mosaic, pipes, shikaku, lits }).map(([k, m]) => [k, { ...m }]));
 export const NAMES = { queens: 'Queens', sets: 'Sets', tower: 'Tower', mosaic: 'Mosaic', pipes: 'Pipes', shikaku: 'Shikaku', lits: 'Lits' };
 export const KINDS = Object.keys(PUZZLES);

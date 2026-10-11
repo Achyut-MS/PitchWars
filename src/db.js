@@ -158,6 +158,23 @@ CREATE TABLE IF NOT EXISTS hints (
   acted   INTEGER,
   hint_key TEXT
 );
+CREATE TABLE IF NOT EXISTS puzzle_sessions (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  game_id     INTEGER NOT NULL,
+  company     TEXT NOT NULL,
+  admission_id TEXT NOT NULL,
+  kind        TEXT NOT NULL,
+  level       INTEGER NOT NULL,
+  puzzle      TEXT NOT NULL,
+  solution    TEXT NOT NULL,
+  shown_at    INTEGER NOT NULL,
+  ended_at    INTEGER,
+  result      TEXT CHECK (result IN ('solved','skipped')),
+  coins       INTEGER NOT NULL DEFAULT 0,
+  penalty     INTEGER NOT NULL DEFAULT 0,
+  wrong_tries INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS puzzle_sessions_by_company ON puzzle_sessions (game_id, company, id);
 `;
 
 // Columns added to company_state in schema v3; used to upgrade a v2 file.
