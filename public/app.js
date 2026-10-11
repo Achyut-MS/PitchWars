@@ -1,17 +1,26 @@
-import { renderLogin, renderScreen, fmtClock } from './render.js';
+import { renderLogin, renderScreen, renderConnecting, renderOffline, fmtClock } from './render.js';
+import { humanError, viewKey, createSendGuard, redrawDecision } from './glue.js';
 
 const root = document.getElementById('app');
 const toast = document.getElementById('toast');
+const conn = document.getElementById('conn');
+const guard = createSendGuard(600);
 let ws = null;
 let id = null;
 let retry = 0;
+let online = false;
+let loggedIn = false;
 let shownPhase = null; // phase of the view currently on screen
 let syncedFor = null; // the tick phase we already asked a sync for
+let shownKey = null;
+let pointerDown = false;
+let downAt = 0;
+let pending = null; // a redraw waiting for the finger to lift
+let pendingTimer = null;
 let lastError = '';
 try { id = sessionStorage.getItem('admissionId'); } catch { /* storage may be blocked */ }
 
-const show = (html) => { root.innerHTML = html; };
-const sendMsg = (m) => { if (ws && ws.readyState === 1) ws.send(typeof m === 'string' ? m : JSON.stringify(m)); };
+const sendMsg = (m) => { if (ws && ws.readyState === 1) { ws.send(typeof m === 'string' ? m : JSON.stringify(m)); return true; } return false; };
 
 function showToast(text) {
   toast.textContent = text;
@@ -19,15 +28,54 @@ function showToast(text) {
   showToast.timer = setTimeout(() => { toast.textContent = ''; }, 4000);
 }
 
+function setOnline(on) {
+  online = on;
+  conn.innerHTML = on ? '' : renderOffline();
+  applyOffline();
+}
+function applyOffline() {
+  for (const b of root.querySelectorAll('button')) if (!online) b.disabled = true;
+}
+
+// Replaces the screen but keeps typed text, focus and open sections.
+function paint(html) {
+  const open = [...root.querySelectorAll('details[data-key]')].map((d) => [d.dataset.key, d.open]);
+  const a = document.activeElement;
+  const field = a && root.contains(a) && a.name === 'id' ? { v: a.value } : null;
+  root.innerHTML = html;
+  for (const [k, o] of open) { const d = [...root.querySelectorAll('details[data-key]')].find((x) => x.dataset.key === k); if (d) d.open = o; }
+  const input = root.querySelector('input[name="id"]');
+  if (field && input) { input.value = field.v; input.focus(); }
+  guard.release();
+  applyOffline();
+}
+
 function showLogin(err) {
-  shownPhase = null;
-  show(renderLogin(err));
+  shownPhase = null; shownKey = null; loggedIn = false;
+  paint(renderLogin(err));
+}
+
+function flushPending() {
+  clearTimeout(pendingTimer);
+  if (pending) { const v = pending; pending = null; shownKey = viewKey(v); paint(renderScreen(v)); }
 }
 
 function onState(view) {
   if (!view || typeof view !== 'object') return;
+  loggedIn = true;
   shownPhase = view.screen === 'game' && view.clock ? view.clock.phase : null;
-  show(renderScreen(view));
+  const key = viewKey(view);
+  const d = redrawDecision({ changed: key !== shownKey, pointerDown, downAt, now: Date.now() });
+  if (d.action === 'skip') { guard.release(); return; }
+  if (d.action === 'defer') {
+    pending = view;
+    clearTimeout(pendingTimer);
+    pendingTimer = setTimeout(flushPending, d.wait);
+    return;
+  }
+  pending = null;
+  shownKey = key;
+  paint(renderScreen(view));
 }
 
 function onMessage(m) {
@@ -38,6 +86,7 @@ function onMessage(m) {
       id = a;
       try { sessionStorage.setItem('admissionId', a); } catch { /* ignore */ }
     }
+    lastError = '';
     sendMsg({ type: 'sync' });
   } else if (m.type === 'state') {
     syncedFor = null;
@@ -51,13 +100,17 @@ function onMessage(m) {
       sendMsg({ type: 'sync' });
     }
   } else if (m.type === 'error') {
-    const e = typeof m.error === 'string' ? m.error : 'error';
+    const e = typeof m.error === 'string' ? m.error : '';
+    guard.release();
     if (e === 'unknown_id') {
       id = null;
       try { sessionStorage.removeItem('admissionId'); } catch { /* ignore */ }
-      lastError = 'That ID is not on the list.';
+      lastError = humanError(e);
       showLogin(lastError);
-    } else showToast(e.replaceAll('_', ' '));
+    } else if (!loggedIn) {
+      lastError = humanError(e);
+      showLogin(lastError);
+    } else showToast(humanError(e));
   }
 }
 
@@ -65,10 +118,12 @@ function connect() {
   ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`);
   ws.onopen = () => {
     retry = 0;
+    setOnline(true);
     if (id) sendMsg({ type: 'login', admissionId: id });
     else showLogin(lastError);
   };
   ws.onclose = () => {
+    setOnline(false);
     // Back off 1, 2, 4, 8 s up to 15 s; the server drops dead sockets after about a minute.
     const wait = Math.min(15000, 1000 * 2 ** retry++);
     setTimeout(connect, wait);
@@ -82,12 +137,24 @@ document.addEventListener('submit', (e) => {
   if (!e.target.matches || !e.target.matches('#login')) return; // not .id: the input named "id" shadows form.id
   e.preventDefault();
   const v = new FormData(e.target).get('id');
-  if (typeof v === 'string' && v.trim()) { lastError = ''; id = v.trim(); sendMsg({ type: 'login', admissionId: id }); }
+  if (typeof v !== 'string' || !v.trim()) return;
+  if (!online) { showToast('Offline - reconnecting...'); return; }
+  lastError = ''; id = v.trim(); sendMsg({ type: 'login', admissionId: id });
 });
+
+document.addEventListener('pointerdown', () => { pointerDown = true; downAt = Date.now(); }, true);
+const lift = () => { pointerDown = false; if (pending) setTimeout(flushPending, 0); };
+document.addEventListener('pointerup', lift, true);
+document.addEventListener('pointercancel', lift, true);
 
 document.addEventListener('click', (e) => {
   const b = e.target.closest && e.target.closest('[data-send]');
-  if (b) sendMsg(b.dataset.send);
+  if (!b) return;
+  if (!online) { showToast('Offline - reconnecting. Your tap was not sent.'); return; }
+  if (!guard.allow(b.dataset.send, Date.now())) return;
+  b.disabled = true;
+  if (!sendMsg(b.dataset.send)) { b.disabled = false; guard.release(); showToast('Offline - reconnecting. Your tap was not sent.'); }
 });
 
+root.innerHTML = renderConnecting();
 connect();

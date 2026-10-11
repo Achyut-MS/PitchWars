@@ -28,3 +28,14 @@ button.danger { background: #b00020; color: #fff; }
 #toast { position: fixed; left: 16px; right: 16px; bottom: 16px; background: #222; color: #fff; padding: 10px 14px; border-radius: 6px; }
 #toast:empty { display: none; }
 img, svg { max-width: 100%; }
+/* Offline banner, compact header, hints (fix round) */
+.offline { position: sticky; top: 0; z-index: 10; margin: 0; padding: 8px 16px; background: #b00020; color: #fff; font-weight: 700; text-align: center; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.bar.compact { flex-wrap: nowrap; gap: 8px; padding: 8px 12px; }
+.bar.compact .who { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.bar.compact .phase { color: #666; text-transform: capitalize; }
+.bar.compact .wallet { white-space: nowrap; }
+.bar.compact #clock { white-space: nowrap; margin-left: auto; }
+.hint { margin: 4px 0 8px; font-weight: 600; }
+details.card > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 700; }
+label select { display: block; margin-top: 2px; }
