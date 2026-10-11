@@ -109,6 +109,12 @@ CREATE TABLE IF NOT EXISTS notices (
   ts      INTEGER NOT NULL,
   until   INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS warnings_sent (
+  game_id INTEGER NOT NULL,
+  warning TEXT NOT NULL,
+  ts      INTEGER NOT NULL,
+  PRIMARY KEY (game_id, warning)
+);
 CREATE TABLE IF NOT EXISTS market_events (
   game_id    INTEGER PRIMARY KEY,
   key        TEXT NOT NULL,

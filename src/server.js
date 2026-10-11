@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { fireWarnings } from './warnings.js';
 import { WebSocketServer } from 'ws';
 import { participantLogin, organizerLogin } from './auth.js';
 import { activeGame } from './persist.js';
@@ -235,6 +236,9 @@ export function createApp({
       console.error('director failed:', e);
     }
     const game = activeGame(db);
+    if (game) {
+      try { changed = fireWarnings(ctx, game) || changed; } catch (e) { console.error('warnings failed:', e); }
+    }
     if (game) {
       const t = now();
       const tick = JSON.stringify({ type: 'tick', serverNow: t, ...phaseAt(game, t), gameId: game.id });

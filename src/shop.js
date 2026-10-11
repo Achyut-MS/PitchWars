@@ -4,12 +4,12 @@ import { companyState, ideaOf, playerIn } from './state.js';
 import { itemLabel } from './labels.js';
 import { isLocked } from './attacks.js';
 import { saleMultiplier } from './marketEvents.js';
+import { shopOpenAt, decisionsOpenAt } from './warnings.js';
 
 export const WALLET_FLOOR = -200;
 export const RETRY_AFTER_MS = 60_000;
 const ADDERS = ['CTO', 'CMO', 'COO'];
 
-export const isShopOpen = (phase) => phase === 'shop' || phase === 'competition';
 export const applicable = (item, idea) => item.appliesTo === 'both' || item.appliesTo === idea.type;
 
 export function rejectionBlock(ctx, game, company, family, phase) {
@@ -41,7 +41,7 @@ export function priceWithSale(base, mult) {
 
 function validate(ctx, game, company, item, choice) {
   const phase = phaseAt(game, ctx.now()).phase;
-  if (!isShopOpen(phase)) throw new Error('the shop is closed');
+  if (!shopOpenAt(game, ctx.now())) throw new Error('the shop is closed');
   const idea = ideaOf(ctx, game, company);
   if (!idea) throw new Error('pick an idea first');
   if (!item || !applicable(item, idea)) throw new Error('that item is not available for this idea');
@@ -103,7 +103,7 @@ export function recommendItem(ctx, game, admissionId, itemId, choice = null) {
 }
 
 function requireOpen(ctx, game) {
-  if (!isShopOpen(phaseAt(game, ctx.now()).phase)) throw new Error('the shop is closed');
+  if (!decisionsOpenAt(game, ctx.now())) throw new Error('the shop is closed');
 }
 
 export const queueHead = (db, gameId, company) =>

@@ -2,7 +2,8 @@ import { activeGame } from './persist.js';
 import { phaseAt } from './phases.js';
 import { companyState, ideaOf, ownedRows, prep } from './state.js';
 import { tally } from './ideation.js';
-import { applicable, blockFromLast, isShopOpen, summaryCard, priceWithSale, chargeFor } from './shop.js';
+import { applicable, blockFromLast, summaryCard, priceWithSale, chargeFor } from './shop.js';
+import { shopOpenAt, warningFor } from './warnings.js';
 import { saleMultiplier } from './marketEvents.js';
 import { itemLabel } from './labels.js';
 import { stuckPhases } from './director.js';
@@ -72,7 +73,7 @@ function companyShop(ctx, game, company, idea, phase, cache) {
 }
 
 function shopView(ctx, game, p, idea, phase, cache) {
-  const open = isShopOpen(phase) && !!idea;
+  const open = shopOpenAt(game, ctx.now()) && !!idea;
   const shared = companyShop(ctx, game, p.company, idea, phase, cache);
   const catalog = shared.catalog.map((c) => ({
     ...c,
@@ -114,7 +115,7 @@ export function viewFor(ctx, admissionId, cache = null) {
     };
   }
   return {
-    me, screen: 'game', clock, problem, wallet: cs.wallet,
+    me, screen: 'game', clock: warningFor(clock) ? { ...clock, warning: warningFor(clock) } : clock, problem, wallet: cs.wallet,
     idea: idea && { id: idea.id, type: idea.type, name: idea.name, description: idea.description },
     ideation,
     shop: clock.phase === 'shop' || clock.phase === 'competition' ? shopView(ctx, game, p, idea, clock.phase, cache) : null,
