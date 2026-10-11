@@ -149,7 +149,8 @@ CREATE TABLE IF NOT EXISTS hints (
   role    TEXT NOT NULL,
   ts      INTEGER NOT NULL,
   text    TEXT NOT NULL,
-  acted   INTEGER
+  acted   INTEGER,
+  hint_key TEXT
 );
 `;
 
@@ -170,6 +171,10 @@ function migrate(db) {
   for (const [name, type] of V3_COMPANY_STATE_COLUMNS) {
     if (!have.has(name)) db.exec(`ALTER TABLE company_state ADD COLUMN ${name} ${type}`);
   }
+  // Hints carry a stored key so one trigger can never be written twice.
+  const hintCols = new Set(db.prepare('PRAGMA table_info(hints)').all().map((c) => c.name));
+  if (!hintCols.has('hint_key')) db.exec('ALTER TABLE hints ADD COLUMN hint_key TEXT');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS hints_by_key ON hints (game_id, hint_key)');
 }
 
 export function openDb(file = ':memory:') {
