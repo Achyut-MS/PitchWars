@@ -79,7 +79,7 @@ function connect() {
 }
 
 document.addEventListener('submit', (e) => {
-  if (e.target.id !== 'login') return;
+  if (!e.target.matches || !e.target.matches('#login')) return; // not .id: the input named "id" shadows form.id
   e.preventDefault();
   const v = new FormData(e.target).get('id');
   if (typeof v === 'string' && v.trim()) { lastError = ''; id = v.trim(); sendMsg({ type: 'login', admissionId: id }); }
