@@ -47,26 +47,21 @@ export function castVote(ctx, game, admissionId, ideaId) {
 }
 
 export function pickIdea(ctx, game, admissionId, ideaId) {
-  game = freshGame(ctx, game);
-  const p = requirePlayer(ctx, game, admissionId);
-  if (p.role !== 'CEO') throw new Error('only the CEO can pick');
-  requireIdeation(ctx, game);
-  requireIdea(ctx, game, ideaId);
-  let endedEarly = false;
-  ctx.db.exec('BEGIN IMMEDIATE');
-  try {
-    if (companyState(ctx.db, game.id, p.company).idea_id) throw new Error('your company has already picked');
+  const p0 = requirePlayer(ctx, freshGame(ctx, game), admissionId);
+  if (p0.role !== 'CEO') throw new Error('only the CEO can pick');
+  return ctx.db.transaction(() => {
+    // Re-read inside the write lock so a concurrent early end is not missed.
+    const g = freshGame(ctx, game);
+    const p = requirePlayer(ctx, g, admissionId);
+    requireIdeation(ctx, g);
+    requireIdea(ctx, g, ideaId);
+    if (companyState(ctx.db, g.id, p.company).idea_id) throw new Error('your company has already picked');
     ctx.db.prepare(
       "UPDATE company_state SET idea_id=?, picked_by=?, picked_at=?, pick_source='ceo' WHERE game_id=? AND company=?"
-    ).run(ideaId, admissionId, ctx.now(), game.id, p.company);
-    logEvent(ctx.db, { ts: ctx.now(), gameId: game.id, admissionId, type: 'idea_pick', payload: { ideaId, company: p.company } });
-    endedEarly = maybeEndEarly(ctx, game);
-    ctx.db.exec('COMMIT');
-  } catch (e) {
-    ctx.db.exec('ROLLBACK');
-    throw e;
-  }
-  return { endedEarly };
+    ).run(ideaId, admissionId, ctx.now(), g.id, p.company);
+    logEvent(ctx.db, { ts: ctx.now(), gameId: g.id, admissionId, type: 'idea_pick', payload: { ideaId, company: p.company } });
+    return { endedEarly: maybeEndEarly(ctx, g) };
+  }).immediate();
 }
 
 function maybeEndEarly(ctx, game) {

@@ -126,3 +126,14 @@ test('resolving twice does not change a pick', () => {
   resolveIdeation(h.ctx, h.game(), () => 0.99);
   assert.equal(companyState(h.db, h.gameId, 'A').idea_id, 'H1');
 });
+
+test('pickIdea works inside an outer transaction', async () => {
+  const { makeRunning, atSec } = await import('./helpers.js');
+  const { pickIdea } = await import('../src/ideation.js');
+  const h = makeRunning();
+  atSec(h, 200);
+  const ideaId = h.ctx.data.ideasFor(h.game().problemId)[0].id;
+  const r = h.db.transaction(() => pickIdea(h.ctx, h.game(), h.seat.A.CEO, ideaId))();
+  assert.equal(r.endedEarly, false);
+  assert.equal(h.db.prepare("SELECT idea_id FROM company_state WHERE game_id=? AND company='A'").get(h.gameId).idea_id, ideaId);
+});

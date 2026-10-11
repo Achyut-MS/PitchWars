@@ -4,8 +4,10 @@ import { phaseAt } from './phases.js';
 export const ORDER = ['briefing', 'ideation', 'shop', 'summary', 'competition'];
 export const HOOKS = {};
 
-// Fires each ended phase's hook once per game. The phase_done insert is the
-// gate (primary key game_id+phase), so repeat ticks and restarts are no-ops.
+// Fires each ended phase's hook once per game. The phase_done mark and the hook
+// run in ONE transaction: a repeat tick or restart finds the mark and skips; a
+// hook that throws rolls the mark and its writes back and is retried next tick.
+// Hooks must therefore be idempotent.
 export function runDirector(ctx, hooks = HOOKS, rng = Math.random) {
   const game = activeGame(ctx.db);
   if (!game) return false;
@@ -14,12 +16,21 @@ export function runDirector(ctx, hooks = HOOKS, rng = Math.random) {
   let ran = false;
   for (let i = 0; i < upTo; i++) {
     const phase = ORDER[i];
-    const fresh = ctx.db
-      .prepare('INSERT OR IGNORE INTO phase_done (game_id, phase) VALUES (?, ?)')
-      .run(game.id, phase).changes === 1;
-    if (fresh && hooks[phase]) {
-      hooks[phase](ctx, activeGame(ctx.db), rng);
-      ran = true;
+    try {
+      const fired = ctx.db.transaction(() => {
+        const fresh = ctx.db
+          .prepare('INSERT OR IGNORE INTO phase_done (game_id, phase) VALUES (?, ?)')
+          .run(game.id, phase).changes === 1;
+        if (fresh && hooks[phase]) {
+          hooks[phase](ctx, activeGame(ctx.db), rng);
+          return true;
+        }
+        return false;
+      }).immediate();
+      if (fired) ran = true;
+    } catch (e) {
+      console.error(`director: ${phase} hook failed, will retry`, e);
+      break; // keep phase order: later phases wait for this one
     }
   }
   return ran;
@@ -27,3 +38,6 @@ export function runDirector(ctx, hooks = HOOKS, rng = Math.random) {
 
 import { resolveIdeation } from './ideation.js';
 HOOKS.ideation = resolveIdeation;
+import { autoRejectAll } from './shop.js';
+HOOKS.shop = autoRejectAll;
+HOOKS.competition = autoRejectAll;

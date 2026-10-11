@@ -71,3 +71,34 @@ test('a phase with no hook is still marked done, so a late hook never fires retr
   runDirector(h.ctx, { briefing: () => calls.push('b') });
   assert.deepEqual(calls, []);
 });
+
+const done = (h) => h.db.prepare('SELECT phase FROM phase_done WHERE game_id = ?').all(h.gameId).map((r) => r.phase);
+
+test('a hook that throws once is retried on the next tick', () => {
+  const h = makeRunning();
+  let n = 0;
+  const hooks = { briefing: () => { n++; if (n === 1) throw new Error('boom'); } };
+  const orig = console.error; console.error = () => {};
+  try {
+    atSec(h, 181);
+    assert.equal(runDirector(h.ctx, hooks), false);
+    assert.deepEqual(done(h), []);
+    assert.equal(runDirector(h.ctx, hooks), true);
+  } finally { console.error = orig; }
+  assert.equal(n, 2);
+  assert.deepEqual(done(h), ['briefing']);
+  assert.equal(runDirector(h.ctx, hooks), false);
+  assert.equal(n, 2);
+});
+
+test('a throwing hook leaves no phase_done row and no partial writes', () => {
+  const h = makeRunning();
+  const hooks = { briefing: (ctx, g) => {
+    ctx.db.prepare("UPDATE company_state SET idea_id = 1 WHERE game_id = ? AND company = 'A'").run(g.id);
+    throw new Error('boom');
+  } };
+  const orig = console.error; console.error = () => {};
+  try { atSec(h, 181); runDirector(h.ctx, hooks); } finally { console.error = orig; }
+  assert.deepEqual(done(h), []);
+  assert.equal(h.db.prepare("SELECT idea_id FROM company_state WHERE game_id = ? AND company = 'A'").get(h.gameId).idea_id, null);
+});
