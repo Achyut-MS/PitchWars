@@ -6,6 +6,7 @@ import { requestItem, cfoDecide } from '../src/shop.js';
 import { viewFor, organizerView } from '../src/views.js';
 import { endGame } from '../src/lobby.js';
 import { openDb } from '../src/db.js';
+import { runDirector } from '../src/director.js';
 
 test('a lobby player gets the lobby screen, a completed player the graphs screen', () => {
   const h = makeRunning();
@@ -165,4 +166,17 @@ test('a player summary card is built from their own company only', () => {
   atSec(h, 790);
   assert.equal(viewFor(h.ctx, h.seat.A.CEO).summary.wallet, 1000);
   assert.equal(JSON.stringify(viewFor(h.ctx, h.seat.A.CEO)).includes('7777'), false);
+});
+
+test('a stuck director shows on the organizer view only', () => {
+  const h = makeRunning();
+  assert.deepEqual(organizerView(h.ctx).game.stuck, []);
+  const quiet = console.error; console.error = () => {};
+  try {
+    atSec(h, 400);
+    for (let i = 0; i < 3; i++) runDirector(h.ctx, { briefing: () => { throw new Error('nope'); } });
+  } finally { console.error = quiet; }
+  assert.deepEqual(organizerView(h.ctx).game.stuck, ['briefing']);
+  const player = JSON.stringify(viewFor(h.ctx, h.seat.A.CEO));
+  assert.ok(!player.includes('stuck') && !player.includes('director_stuck'));
 });

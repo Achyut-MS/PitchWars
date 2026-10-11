@@ -4,6 +4,7 @@ import { companyState, ideaOf, ownedRows, prep } from './state.js';
 import { tally } from './ideation.js';
 import { applicable, blockFromLast, isShopOpen, summaryCard } from './shop.js';
 import { itemLabel } from './labels.js';
+import { stuckPhases } from './director.js';
 
 const ADDERS = ['CTO', 'CMO', 'COO'];
 
@@ -140,6 +141,6 @@ export function organizerView(ctx, cache = null) {
   };
   return {
     screen: 'organizer', participants, problems,
-    game: { id: game.id, problemId: game.problemId, clock: phaseAt(game, ctx.now()), companies: { A: panel('A'), B: panel('B') } },
+    game: { id: game.id, problemId: game.problemId, stuck: stuckPhases(ctx.db, game.id), clock: phaseAt(game, ctx.now()), companies: { A: panel('A'), B: panel('B') } },
   };
 }
