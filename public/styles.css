@@ -1,0 +1,11 @@
+/* Plain working styles. The real visual design is Plan 7. */
+body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem; background: #fff; color: #222; }
+.card { border: 1px solid #ccc; border-radius: 8px; padding: 1rem; margin: 0 0 1rem; }
+.bar { display: flex; gap: 1rem; justify-content: space-between; margin-bottom: 1rem; }
+ul { list-style: none; padding: 0; margin: 0; }
+li { padding: .4rem 0; }
+button { padding: .4rem .8rem; margin: .2rem; cursor: pointer; }
+button.primary { font-weight: bold; }
+.muted { color: #777; }
+.error { color: #b00020; }
+.item.owned { opacity: .6; }
