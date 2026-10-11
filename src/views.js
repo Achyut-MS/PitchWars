@@ -9,6 +9,9 @@ import { itemLabel } from './labels.js';
 import { stuckPhases } from './director.js';
 import { ATTACKS, attackByKey, attackCooldownUntil, hasShield } from './attacks.js';
 import { effectiveRates } from './rates.js';
+import { rolePoints } from './levels.js';
+import { activeEvent } from './marketEvents.js';
+import { activeAttacks } from './attacks.js';
 import { latestHint } from './hints.js';
 
 const ADDERS = ['CTO', 'CMO', 'COO'];
@@ -86,7 +89,19 @@ function shopView(ctx, game, p, idea, phase, cache) {
   const mine = prep(ctx.db, 'SELECT * FROM requests WHERE game_id=? AND company=? AND requested_by=? ORDER BY id DESC LIMIT 8')
     .all(game.id, p.company, p.admission_id)
     .map((r) => ({ id: r.id, itemId: r.item_id, label: itemLabel(ctx.data.item(r.item_id), idea, r.choice), status: r.status }));
-  const shop = { open, catalog, mine };
+  const shop = { open, catalog, mine, locked: null, sale: null };
+  if (phase === 'competition') {
+    const kind = p.role === 'CTO' ? 'cto_lock' : p.role === 'CFO' ? 'cfo_lock' : null;
+    if (kind) {
+      const row = activeAttacks(ctx.db, game.id, p.company, ctx.now()).find((r) => attackByKey(r.key).kind === kind);
+      if (row) shop.locked = attackByKey(row.key).cover;
+    }
+    const ev = activeEvent(ctx.db, game.id, ctx.now());
+    if (ev && ev.priceMult) {
+      const e = prep(ctx.db, 'SELECT ends_at FROM market_events WHERE game_id=?').get(game.id);
+      shop.sale = { active: true, mult: ev.priceMult, endsInSec: Math.max(0, Math.ceil((e.ends_at - ctx.now()) / 1000)) };
+    }
+  }
   if (p.role === 'CEO' || p.role === 'CFO') shop.queue = shared.queue;
   if (p.role === 'CEO') shop.awaitingCeo = shared.awaitingCeo;
   return shop;
@@ -100,7 +115,9 @@ function companyCompetition(ctx, game, company, t, cache) {
   if (cache && cache.has(key)) return cache.get(key);
   const r = effectiveRates(ctx, game, company, t);
   const notices = prep(ctx.db, 'SELECT role, text FROM notices WHERE game_id=? AND company=? AND ts <= ? AND ? < until ORDER BY id').all(game.id, company, t, t);
-  const out = { rates: { CTO: round1(r.CTO), CMO: round1(r.CMO), COO: round1(r.COO), total: round1(r.total) }, notices };
+  const pts = rolePoints(ctx.data, ownedRows(ctx.db, game.id, company).map((o) => o.item_id));
+  const level = { CTO: round1(Math.min(3, pts.CTO)), CMO: round1(Math.min(3, pts.CMO)), COO: Math.min(3, pts.COO) };
+  const out = { level, rates: { CTO: round1(r.CTO), CMO: round1(r.CMO), COO: round1(r.COO), total: round1(r.total) }, notices };
   if (cache) cache.set(key, out);
   return out;
 }
@@ -124,7 +141,7 @@ function competitionView(ctx, game, p, clock, cache) {
       .map((a) => ({ name: attackByKey(a.key)?.name ?? a.key, cost: a.cost, at: a.launched_at, status: a.blocked ? 'blocked' : 'landed' }));
     attack = { options: ATTACKS.map(({ key, name, cost }) => ({ key, name, cost })), cooldownLeftSec, lockedReason, launches };
   }
-  return { rates: shared.rates, notices, hint: hint && { text: hint.text }, shield, attack };
+  return { rates: shared.rates, level: shared.level, notices, hint: hint && { text: hint.text }, shield, attack };
 }
 
 export function viewFor(ctx, admissionId, cache = null) {

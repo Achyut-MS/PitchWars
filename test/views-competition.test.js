@@ -177,3 +177,35 @@ test('a Competition viewFor with a shared cache stays under 10 ms', () => {
   const per = Number(process.hrtime.bigint() - t0) / 80 / 1e6;
   console.log(`viewFor ${per.toFixed(2)} ms`); assert.ok(per < 10, `${per} ms`);
 });
+
+test('shop carries a cover-story lock flag for the affected role only', () => {
+  const h = toCompetition(makeRunning());
+  launchAttack(h.ctx, h.game(), h.seat.A.CEO, 'supplier_delay', () => 0);
+  assert.equal(viewFor(h.ctx, h.seat.B.CTO).shop.locked, 'Supplier systems are down for maintenance');
+  assert.equal(viewFor(h.ctx, h.seat.B.CFO).shop.locked, null);
+  assert.equal(viewFor(h.ctx, h.seat.A.CTO).shop.locked, null);
+  atSec(h, 1000);
+  launchAttack(h.ctx, h.game(), h.seat.A.CEO, 'bank_freeze', () => 0);
+  assert.equal(viewFor(h.ctx, h.seat.B.CFO).shop.locked, 'Bank systems are under maintenance');
+  assert.equal(viewFor(h.ctx, h.seat.B.CMO).shop.locked, null);
+  assert.equal(/attack|rival/i.test(viewFor(h.ctx, h.seat.B.CFO).shop.locked), false);
+});
+
+test('shop.sale is set for both companies only during a Shop Sale', () => {
+  const h = toCompetition(makeRunning());
+  assert.equal(viewFor(h.ctx, h.seat.A.CFO).shop.sale, null);
+  triggerMarketEvent(h.ctx, h.game(), 'shop_sale');
+  for (const c of ['A', 'B']) assert.deepEqual(viewFor(h.ctx, h.seat[c].CTO).shop.sale, { active: true, mult: 0.75, endsInSec: 90 });
+  atSec(h, 891);
+  assert.equal(viewFor(h.ctx, h.seat.A.CTO).shop.sale, null);
+  const h2 = toCompetition(makeRunning());
+  triggerMarketEvent(h2.ctx, h2.game(), 'demand_surge');
+  assert.equal(viewFor(h2.ctx, h2.seat.A.CTO).shop.sale, null);
+});
+
+test('the meter carries an explicit level next to the rate', () => {
+  const h = toCompetition(makeRunning());
+  give(h, 'A', ['O01', 'O02', 'M01-L', 'HC01']);
+  assert.deepEqual(viewFor(h.ctx, h.seat.A.CFO).competition.level, { CTO: 0, CMO: 1.5, COO: 2 });
+  assert.deepEqual(viewFor(h.ctx, h.seat.B.CFO).competition.level, { CTO: 0, CMO: 0, COO: 0 });
+});
