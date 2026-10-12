@@ -120,10 +120,23 @@ const PNGS = [['company-vs-company', 'Company vs company'], ['coin-difference', 
 function resultsControls(g, ui) {
   const id = esc(g.id);
   const reveal = g.ended && !g.revealed ? `<p><button id="reveal" class="primary"${dis(ui)}>Reveal graphs</button></p>` : '';
-  const downloads = g.revealed
-    ? `<p><a href="/export/game/${id}.xlsx" data-export>Download this game (Excel)</a> <a href="/export/event.xlsx" data-export>Download the whole event (Excel)</a></p>
-  <p>${PNGS.map(([stem, name]) => `<a href="/export/game/${id}/${stem}.png" data-export>${esc(name)} (PNG)</a>`).join(' ')}</p>` : '';
-  return `<section class="card"><h2>Results</h2>${reveal}<p><button id="next-game"${dis(ui)}>Next Game</button></p>${downloads}</section>`;
+  return `<section class="card"><h2>Results</h2>${reveal}<p><button id="next-game"${dis(ui)}>Next Game</button></p></section>`;
+}
+
+// Always shown (lobby, running, between games). organizer.js completes the links at click time.
+function downloadsPanel(d) {
+  if (!d || typeof d !== 'object') return '';
+  const row = (g) => {
+    const id = esc(g.id);
+    const pngs = g.revealedAt != null
+      ? PNGS.map(([stem, name]) => `<a href="/export/game/${id}/${stem}.png" data-export>${esc(name)} (PNG)</a>`).join(' ')
+      : '<span class="muted">graphs appear after Reveal</span>';
+    return `<li>Game ${id}${g.running ? ' (running)' : ''}: <a href="/export/game/${id}.xlsx" data-export>Excel</a> ${pngs}</li>`;
+  };
+  const games = arr(d.games);
+  return `<section class="card" id="downloads"><h2>Downloads</h2>
+  <p><a href="/export/event.xlsx" data-export>Whole event (Excel)</a></p>
+  ${games.length ? `<ul>${games.map(row).join('')}</ul>` : '<p class="muted">No games yet.</p>'}</section>`;
 }
 
 export function renderOrganizer(v, ui = {}) {
@@ -133,7 +146,7 @@ export function renderOrganizer(v, ui = {}) {
   const err = off + (ui.error ? `<p class="error" role="alert" id="org-error">${esc(ui.error)}</p>` : '');
   const rehearsal = Number(v.rehearsalSpeed) > 1
     ? `<p class="warn" id="rehearsal-banner" role="alert">REHEARSAL SPEED x${esc(v.rehearsalSpeed)} — NOT FOR THE EVENT</p>` : '';
-  if (!v.game) return `<main>${rehearsal}${err}${backupLine(v.backup)}${lobby(v, ui)}</main>`;
+  if (!v.game) return `<main>${rehearsal}${err}${backupLine(v.backup)}${lobby(v, ui)}${downloadsPanel(v.downloads)}</main>`;
   const clock = v.game.clock ?? { phase: '?', remainingSec: 0 };
   const companies = v.game.companies ?? {};
   const stuck = arr(v.game.stuck);
@@ -144,6 +157,6 @@ export function renderOrganizer(v, ui = {}) {
   ${['briefing', 'ideation', 'shop', 'summary'].includes(clock.phase)
     ? `<p class="muted">Rehearsal and testing only:</p>${confirmButton('skip to next phase', 'skip_phase', ui)}` : ''}</section>`;
   return `<header class="bar"><span>Game ${esc(v.game.id)}</span><span class="phase">${esc(clock.phase)}</span><span id="clock">${fmtClock(clock.remainingSec)}</span></header>
-  <main>${rehearsal}${banner}${err}${backupLine(v.backup)}${controls}${clock.phase === 'briefing' ? seatTools(v, ui) : ''}${clock.phase === 'competition' ? competitionControls(v.game, ui) : ''}${resultsControls(v.game, ui)}</main>
+  <main>${rehearsal}${banner}${err}${backupLine(v.backup)}${controls}${clock.phase === 'briefing' ? seatTools(v, ui) : ''}${clock.phase === 'competition' ? competitionControls(v.game, ui) : ''}${resultsControls(v.game, ui)}${downloadsPanel(v.downloads)}</main>
   <main class="two">${panel('A', companies.A, v.game.ideas)}${panel('B', companies.B, v.game.ideas)}</main>`;
 }

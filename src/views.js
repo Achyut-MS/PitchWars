@@ -210,13 +210,20 @@ export function viewFor(ctx, admissionId, cache = null) {
   };
 }
 
+// Organizer only: every game (newest first, at most 20) for the Downloads panel. Ids, times and flags only.
+function downloadsList(db) {
+  const rows = prep(db, 'SELECT id, ended_at, revealed_at FROM games ORDER BY id DESC LIMIT 20').all();
+  return { games: rows.map((g) => ({ id: g.id, endedAt: g.ended_at, revealedAt: g.revealed_at, running: g.ended_at === null })), event: true };
+}
+
 export function organizerView(ctx, cache = null) {
   const participants = prep(ctx.db, 'SELECT admission_id, name, status, company, role, game_id FROM participants ORDER BY admission_id').all();
   const problems = ctx.data.problems.map(({ id, title }) => ({ id, title }));
   const game = activeGame(ctx.db);
   const backup = ctx.backupStatus ? ctx.backupStatus() : null;
   const rehearsalSpeed = ctx.speed > 1 ? ctx.speed : null; // organizer only, never in a player view
-  if (!game) return { screen: 'organizer', participants, problems, game: null, backup, rehearsalSpeed };
+  const downloads = downloadsList(ctx.db);
+  if (!game) return { screen: 'organizer', participants, problems, game: null, backup, rehearsalSpeed, downloads };
   const panel = (company) => {
     const cs = companyState(ctx.db, game.id, company);
     const idea = ideaOf(ctx, game, company);
@@ -231,7 +238,7 @@ export function organizerView(ctx, cache = null) {
     };
   };
   return {
-    screen: 'organizer', participants, problems, backup, rehearsalSpeed,
+    screen: 'organizer', participants, problems, backup, rehearsalSpeed, downloads,
     game: { id: game.id, problemId: game.problemId, stuck: stuckPhases(ctx.db, game.id), clock: phaseAt(game, ctx.now()), ended: phaseAt(game, ctx.now()).phase === 'ended', revealed: revealed(ctx, game), companies: { A: panel('A'), B: panel('B') },
       puzzles: Object.fromEntries(['A', 'B'].map((c) => [c, {
         solved: puzzleCount(ctx.db, game.id, c, 'solved'),
