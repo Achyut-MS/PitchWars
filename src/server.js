@@ -63,6 +63,7 @@ export function createApp({
   join = () => joinConfigFromEnv(process.env),
   mono = () => performance.now(),
   ipOf = (req) => req.socket.remoteAddress,
+  maxUnauth = 300, loginWindowMs = 60_000,
   allowDuplicateSessions = false, // load tests only: many sockets as the same player
 }) {
   const ctx = { db, data, now, exportDir, backupDir, speed };
@@ -70,8 +71,23 @@ export function createApp({
     ? staticHandler(staticRoot)
     : (req, res) => { res.writeHead(404); res.end(); };
   // Organizer download tokens: random, one per organizer login, memory only (oldest dropped past the cap).
-  const tokens = new Set();
+  // A token stays valid while its organizer socket is open and for 30 minutes after it closes.
+  const TOKEN_GRACE_MS = 30 * 60_000;
   const MAX_TOKENS = 50;
+  const tokens = {
+    map: new Map(), // token -> { ws, closedAt }
+    get size() { return this.map.size; },
+    add(token, ws) { this.map.set(token, { ws, closedAt: null }); },
+    has(token) {
+      const e = this.map.get(token);
+      if (!e) return false;
+      if (e.closedAt !== null && now() - e.closedAt >= TOKEN_GRACE_MS) { this.map.delete(token); return false; }
+      return true;
+    },
+    release(ws) { for (const e of this.map.values()) if (e.ws === ws && e.closedAt === null) e.closedAt = now(); },
+    oldest() { return this.map.keys().next().value; },
+    delete(token) { this.map.delete(token); },
+  };
   const exporter = createExportHandler({ db, data, ctx, tokens });
   const server = http.createServer(async (req, res) => {
     try {
@@ -104,6 +120,9 @@ export function createApp({
   const replaced = new Map(); // `${gameId}:${admissionId}` -> times a newer login replaced an older socket
   ctx.duplicateWarnings = (gameId) => [...replaced].filter(([k]) => k.startsWith(`${gameId ?? 0}:`))
     .map(([k, count]) => ({ type: 'duplicate_login', admissionId: k.slice(k.indexOf(':') + 1), count }));
+  // Sockets that have not logged in yet: capped, and closed after loginWindowMs.
+  const unauth = new Map(); // ws -> timer handle
+  const settle = (ws) => { if (unauth.has(ws)) { clearTimer(unauth.get(ws)); unauth.delete(ws); } };
   const ipOfWs = new WeakMap();
   const ipLimits = new Map(); // ip -> { fails: [ts], lastAllowed }
   const loginLimits = new Map(); // ip -> { fails: [ts], lockedUntil }
@@ -301,10 +320,12 @@ export function createApp({
   }
 
   wss.on('connection', (ws, req) => {
+    if (unauth.size >= maxUnauth) { ws.on('error', () => {}); return ws.close(1013, 'busy'); }
+    unauth.set(ws, setTimer(() => { unauth.delete(ws); try { ws.close(1008, 'login timeout'); } catch { ws.terminate(); } }, loginWindowMs));
     try { ipOfWs.set(ws, normIp(ipOf(req))); } catch { ipOfWs.set(ws, ''); }
     alive.set(ws, true);
     ws.on('pong', () => alive.set(ws, true));
-    ws.on('close', () => endSession(ws));
+    ws.on('close', () => { settle(ws); tokens.release(ws); endSession(ws); });
     ws.on('error', () => {
       endSession(ws);
       ws.terminate();
@@ -393,6 +414,7 @@ export function createApp({
         markDirty();
       }
       sessions.set(ws, { kind: 'participant', admissionId: r.participant.admissionId });
+      settle(ws);
       return send(ws, { type: 'welcome', view: r.view, participant: r.participant });
     }
     if (msg.type === 'organizer') {
@@ -400,9 +422,10 @@ export function createApp({
       const r = organizerAttempt(ws, msg.password);
       if (r !== 'ok') return send(ws, { type: 'error', error: r });
       sessions.set(ws, { kind: 'organizer' });
+      settle(ws);
       const token = randomUUID();
-      tokens.add(token);
-      if (tokens.size > MAX_TOKENS) tokens.delete(tokens.values().next().value);
+      tokens.add(token, ws);
+      if (tokens.size > MAX_TOKENS) tokens.delete(tokens.oldest());
       return send(ws, { type: 'welcome', view: 'organizer', token });
     }
 

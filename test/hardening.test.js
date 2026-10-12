@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import WebSocket from 'ws';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { openDb } from '../src/db.js';
 import { addParticipant } from '../src/roster.js';
 import { createApp } from '../src/server.js';
@@ -15,6 +18,7 @@ export async function boot(extra = {}, rows = 12) {
   const timers = [];
   const app = createApp({
     db, organizerPassword: 'pw-long-enough', now: () => t, data, staticRoot: null,
+    exportDir: mkdtempSync(join(tmpdir(), 'ex-')), backupDir: mkdtempSync(join(tmpdir(), 'bk-')),
     setTimer: (fn, ms) => { const h = { fn, ms, live: true }; timers.push(h); return h; },
     clearTimer: (h) => { if (h) h.live = false; },
     ipOf: (req) => req.headers['x-test-ip'] || req.socket.remoteAddress,
@@ -191,4 +195,80 @@ test('start_game refuses an unknown problem id and creates no game', async () =>
   assert.equal(db.prepare('SELECT COUNT(*) n FROM games').get().n, 0);
   assert.equal((await ask(o, { type: 'start_game', problemId: 1 })).type, 'state');
   await done(app, o);
+});
+
+// ---- 6. idle unauthenticated sockets ----
+test('a socket that does not log in within 60 s is closed; logging in cancels the timer', async () => {
+  const { app, url, fire } = await boot();
+  const idle = await connect(url);
+  const player = await connect(url);
+  await ask(player, { type: 'login', admissionId: 'S1' });
+  const idleClosed = closed(idle);
+  await new Promise((r) => setTimeout(r, 20));
+  fire(60_000);
+  await idleClosed;
+  assert.equal(idle.readyState, 3);
+  assert.equal(player.readyState, 1);
+  await done(app, idle, player);
+});
+
+test('a closed socket clears its login timer', async () => {
+  const { app, url, timers } = await boot();
+  const w = await connect(url);
+  await new Promise((r) => setTimeout(r, 20));
+  assert.ok(timers.some((h) => h.ms === 60_000 && h.live));
+  w.close(); await closed(w);
+  await new Promise((r) => setTimeout(r, 20));
+  assert.ok(!timers.some((h) => h.ms === 60_000 && h.live));
+  await done(app, w);
+});
+
+test('unauthenticated sockets are capped; extra ones get close code 1013', async () => {
+  const { app, url } = await boot({ maxUnauth: 3 });
+  const socks = [];
+  for (let i = 0; i < 3; i++) socks.push(await connect(url));
+  const extra = new WebSocket(url);
+  const code = await new Promise((r) => { extra.on('close', (c) => r(c)); extra.on('error', () => {}); });
+  assert.equal(code, 1013);
+  // a login frees a slot
+  await ask(socks[0], { type: 'login', admissionId: 'S1' });
+  const again = await connect(url);
+  assert.equal(again.readyState, 1);
+  await done(app, ...socks, again);
+});
+
+// ---- 7. download tokens expire after the organizer socket closes ----
+import http from 'node:http';
+const getStatus = (url, path) => new Promise((resolve, reject) => {
+  const u = new URL(url);
+  http.get({ port: u.port, path }, (res) => { res.resume(); res.on('end', () => resolve(res.statusCode)); }).on('error', reject);
+});
+
+test('a download token lives while the organizer socket is open and 30 minutes after it closes', async () => {
+  const { app, url, setT, getT } = await boot();
+  const o = await connect(url);
+  const welcome = await org(o, 'pw-long-enough');
+  const path = `/export/event.xlsx?token=${welcome.token}`;
+  assert.equal(await getStatus(url, path), 200);
+  setT(getT() + 5 * 3600_000); // hours later, socket still open
+  assert.equal(await getStatus(url, path), 200);
+  o.close(); await closed(o);
+  await new Promise((r) => setTimeout(r, 30));
+  setT(getT() + 29 * 60_000);
+  assert.equal(await getStatus(url, path), 200);
+  setT(getT() + 2 * 60_000);
+  assert.equal(await getStatus(url, path), 403);
+  await done(app, o);
+});
+
+test('a second organizer connection keeps its own token valid', async () => {
+  const { app, url, setT, getT } = await boot();
+  const a = await connect(url); const ta = (await org(a, 'pw-long-enough')).token;
+  const b = await connect(url); const tb = (await org(b, 'pw-long-enough')).token;
+  a.close(); await closed(a);
+  await new Promise((r) => setTimeout(r, 30));
+  setT(getT() + 31 * 60_000);
+  assert.equal(await getStatus(url, `/export/event.xlsx?token=${ta}`), 403);
+  assert.equal(await getStatus(url, `/export/event.xlsx?token=${tb}`), 200);
+  await done(app, a, b);
 });
