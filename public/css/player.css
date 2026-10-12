@@ -166,8 +166,8 @@ table.puzzle-grid { display: table; width: auto; margin: 0 auto; border: var(--l
 .puzzle .cards [data-card].group { background: var(--team-soft); }
 
 /* ---------- results (draft: results.html; Plan 5 markup: main.results, the thank-you card) ---------- */
-.thanks, .screen[data-phase="ended"] main { max-width: 760px; text-align: center; }
-main.results { display: grid; gap: 18px; max-width: 1500px; }
+.thanks, .screen[data-phase="ended"] main:not(.results) { max-width: 760px; text-align: center; }
+main.results > .title2 { grid-column: 1 / -1; text-align: center; }
+main.results { display: grid; gap: 18px; max-width: 960px; }
 main.results > * + * { margin-top: 0; }
 main.results .card svg { width: 100%; height: auto; display: block; }
-@media (min-width: 1000px) { main.results { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
