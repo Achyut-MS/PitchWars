@@ -34,7 +34,7 @@ test('when the game has ended the organizer sees Reveal graphs, and after it Nex
   const before = renderOrganizer(orgGame({}));
   assert.match(before, /id="reveal"/);
   assert.match(before, /id="next-game"/);
-  const after = renderOrganizer(orgGame({ revealed: true }));
+  const after = renderOrganizer({ ...orgGame({ revealed: true }), downloads: { games: [{ id: 1, endedAt: 9, revealedAt: 9, running: true }], event: true } });
   assert.equal(after.includes('id="reveal" '), false);
   assert.match(after, /\/export\/game\/1\.xlsx/);
 });
