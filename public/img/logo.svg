@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+<!-- PLACEHOLDER Makerspace logo from ui-drafts/login.html. Replace this file with the real logo. Keep the file name, or point the logo token in public/css/tokens.css at the new file. -->
+<circle cx="60" cy="60" r="57" fill="#111"/><circle cx="60" cy="60" r="53" fill="none" stroke="#FF6A1F" stroke-width="2.5"/>
+<defs><path id="arc" d="M60,60 m-41,0 a41,41 0 1,1 82,0"/></defs><text font-family="Space Mono, monospace" font-weight="700" font-size="13.5" letter-spacing="3" fill="#FBF0D9"><textPath href="#arc" startOffset="2%">MAKER SPACE</textPath></text>
+<g stroke="#FBF0D9" stroke-width="2.6" stroke-linecap="round" fill="none"><path d="M60,92 V62"/><path d="M60,74 L47,60 M60,68 L74,54 M60,62 L52,46 M60,62 L68,44 M47,60 L38,56 M74,54 L82,50"/></g><g fill="#FBF0D9"><circle cx="52" cy="45" r="3"/><circle cx="68" cy="43" r="3"/><circle cx="38" cy="55" r="3"/><circle cx="83" cy="49" r="3"/><circle cx="60" cy="40" r="3"/></g><circle cx="60" cy="102" r="2.6" fill="#FF6A1F"/>
+</svg>
