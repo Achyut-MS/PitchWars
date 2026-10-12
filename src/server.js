@@ -207,7 +207,9 @@ export function createApp({
       logAct('unassign', { admissionId: m.admissionId });
     },
     start_game: (m) => {
-      const id = startGame(db, int(m.problemId), now());
+      const problemId = int(m.problemId);
+      if (!data.problems.some((p) => p.id === problemId)) throw new Error('unknown problem');
+      const id = startGame(db, problemId, now());
       if (speed > 1) logEvent(db, { ts: now(), gameId: id, type: 'rehearsal_speed', payload: { speed } });
       logAct('start_game', { problemId: m.problemId }, id);
     },

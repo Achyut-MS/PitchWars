@@ -180,3 +180,15 @@ test('the organizer console shows who logged in again', async () => {
   assert.doesNotMatch(renderOrganizer({ ...base, warnings: [] }), /Logged in again/);
   assert.match(renderOrganizer({ ...base, participants: [{ admission_id: 'S1', name: '<b>x</b>', status: 'lobby' }] }), /&lt;b&gt;x&lt;\/b&gt; \(3x\)/);
 });
+
+// ---- 4. start_game validates the problem ----
+test('start_game refuses an unknown problem id and creates no game', async () => {
+  const { db, app, url } = await boot();
+  const o = await orgOf(url);
+  const roles = ['CEO', 'CTO', 'CFO', 'CMO', 'COO'];
+  for (let i = 0; i < 10; i++) assert.notEqual((await ask(o, { type: 'assign', admissionId: `S${i}`, company: i < 5 ? 'A' : 'B', role: roles[i % 5] })).type, 'error');
+  assert.deepEqual(await ask(o, { type: 'start_game', problemId: 999 }), { type: 'error', error: 'unknown problem' });
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM games').get().n, 0);
+  assert.equal((await ask(o, { type: 'start_game', problemId: 1 })).type, 'state');
+  await done(app, o);
+});
