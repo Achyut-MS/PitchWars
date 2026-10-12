@@ -84,7 +84,7 @@ export function createApp({
       'content-type': 'text/html; charset=utf-8',
       'cache-control': 'no-store',
       'x-content-type-options': 'nosniff',
-      'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:",
+      'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src 'self'",
     });
     return res.end(req.method === 'HEAD' ? undefined : body);
   }
