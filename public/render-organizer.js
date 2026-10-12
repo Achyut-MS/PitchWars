@@ -1,4 +1,5 @@
 import { esc, fmtClock, plural, renderOffline } from './render.js';
+import { icon, logo, companyMark, ROLE_ICON } from './kit.js';
 
 const ROLES = ['CEO', 'CTO', 'CFO', 'CMO', 'COO'];
 
@@ -9,9 +10,18 @@ const dis = (ui) => (ui && ui.offline ? ' disabled' : '');
 const arr = (a) => (Array.isArray(a) ? a : []);
 
 export function renderOrganizerLogin(error) {
-  return `<form id="login" class="card"><h1>Organizer</h1>
-  <label>Password <input name="pw" type="password" autofocus></label><button type="submit">Enter</button>
-  ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ''}</form>`;
+  return `<div class="login-page">
+<header class="topbar">${logo()}<span class="brand">Makerspace</span><span class="tag">Manage.<br>Monitor.<br>Run the game.</span></header>
+<main class="page">
+  <div class="title"><h1><span class="one">Future</span> <span class="two">Makers</span></h1></div>
+  <p class="sub">Startup Showdown</p>
+  <form id="login" class="card"><h2>Organizer <b>Login</b></h2>
+  <label class="field pw">${icon('i-lock')}<span class="sr-only">Password</span><input name="pw" type="password" placeholder="Password" autocomplete="current-password" autofocus></label>
+  <button type="submit" class="join">Login</button>
+  ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ''}</form>
+  <aside class="card info">${icon('i-info', 'i big')}<p>Authorized organizers only. All actions are recorded.</p></aside>
+  <a class="org-link" href="/">Back to participant login</a>
+</main></div>`;
 }
 
 function seatSelect(p) {
@@ -38,29 +48,41 @@ function backupLine(b) {
     : `<p class="error" id="backup-status" role="alert">Backup failed: ${esc(b.error ?? 'unknown error')} (${hhmm(b.at)}). The game carries on; the next try is in 5 minutes.</p>`;
 }
 
+function seatBoards(v) {
+  const ps = arr(v.participants);
+  const board = (co) => `<section class="card company seats" data-company="${co}"><h3>${companyMark(co)}Company ${co} <span class="count">${ps.filter((p) => p.company === co && p.role).length} / 5</span></h3>
+  <table><thead><tr><th>Role</th><th>Participant</th><th>Admission ID</th></tr></thead><tbody>${ROLES.map((r) => {
+    const p = ps.find((x) => x.company === co && x.role === r);
+    return `<tr><td>${icon(ROLE_ICON[r])} ${r}</td><td>${p ? esc(p.name) : '<span class="muted">Not assigned</span>'}</td><td>${p ? esc(p.admission_id) : '-'}</td></tr>`;
+  }).join('')}</tbody></table></section>`;
+  return `<div class="boards">${board('A')}${board('B')}</div>`;
+}
+
 function lobby(v, ui) {
   const ps = arr(v.participants);
   const seated = ps.filter((p) => p.status === 'lobby' && p.company && p.role).length;
   const rows = ps.map((p) => `<tr><td>${esc(p.admission_id)}</td><td>${esc(p.name)}</td><td>${esc(p.status)}</td>
     <td>${p.status === 'lobby' ? seatSelect(p) : `${esc(p.company ?? '')} ${esc(p.role ?? '')}`}</td></tr>`).join('');
   const problems = arr(v.problems).map((p) => `<option value="${esc(p.id)}">${esc(p.id)}. ${esc(p.title)}</option>`).join('');
-  return `<section class="card"><h2>Roster</h2>
+  return `<section class="card" id="sec-roster"><h2>Roster</h2>
   <p><a href="/join" target="_blank" rel="noopener" id="join-sign">Open the join sign</a></p>
-  <textarea id="roster" rows="4" placeholder="admission_id,name (one per line)"></textarea>
+  <textarea id="roster" rows="4" placeholder="admission_id,name (one per line)" aria-label="Roster"></textarea>
   <input type="file" id="roster-file" accept=".csv,.txt,text/csv,text/plain" aria-label="Roster file">
   <button id="import"${dis(ui)}>Import roster</button>
   ${importSummary(ui.importResult)}
-  <p><input id="add-id" placeholder="Admission ID"> <input id="add-name" placeholder="Name"> <button id="add"${dis(ui)}>Add participant</button></p></section>
-  <section class="card"><h2>Lobby</h2><p>${seated} of 10 seats filled</p>
+  <p><input id="add-id" placeholder="Admission ID" aria-label="Admission ID"> <input id="add-name" placeholder="Name" aria-label="Name"> <button id="add"${dis(ui)}>Add participant</button></p></section>
+  <section class="card" id="sec-lobby"><h2>Lobby</h2><p>${seated} of 10 seats filled</p>
   <table><thead><tr><th>ID</th><th>Name</th><th>Status</th><th>Seat</th></tr></thead><tbody>${rows}</tbody></table></section>
-  <section class="card"><h2>Start</h2><label>Problem statement <select id="problem">${problems}</select></label>
+  ${seatBoards(v)}
+  <section class="card" id="sec-start"><h2>Start</h2><label>Problem statement <select id="problem">${problems}</select></label>
   ${ui.confirm === 'start_game'
     ? `<span class="confirm">The clock starts for everyone. <button id="start-yes" class="danger"${dis(ui)}>Yes, start game</button><button data-confirm="">Cancel</button></span>`
     : `<button id="start" class="primary" data-confirm="start_game"${dis(ui)}>Start game</button>`}</section>`;
 }
 
 function panel(name, c, ideas) {
-  if (!c) return `<section class="card"><h2>Company ${esc(name)}</h2><p class="muted">No data.</p></section>`;
+  const co = name === 'B' ? 'B' : 'A';
+  if (!c) return `<section class="card company" data-company="${co}"><h2>${companyMark(co)}Company ${esc(name)}</h2><p class="muted">No data.</p></section>`;
   const votes = Object.entries(c.votes ?? {}).map(([id, n]) => `${esc(arr(ideas).find((i) => i && i.id === id)?.name ?? id)}: ${esc(plural(n, 'vote'))}`).join(', ');
   const owned = arr(c.owned);
   const items = owned.length ? owned.map((o) => `<li>${esc(o.label)} <span>${esc(o.charged)}</span></li>`).join('') : '<li class="muted">Nothing bought</li>';
@@ -68,7 +90,7 @@ function panel(name, c, ideas) {
   const queue = q.length ? q.map((r) => `<li>${esc(r.label)} for ${esc(r.price)} (${esc(r.by)})</li>`).join('') : '<li class="muted">Queue empty</li>';
   const aw = arr(c.awaitingCeo);
   const awaiting = aw.length ? `<h3>Waiting for CEO</h3><ul>${aw.map((r) => `<li>${esc(r.label)} (${esc(r.by)})</li>`).join('')}</ul>` : '';
-  return `<section class="card"><h2>Company ${esc(name)}</h2>
+  return `<section class="card company" data-company="${co}"><h2>${companyMark(co)}Company ${esc(name)}</h2>
   <p class="big">${esc(plural(c.wallet, 'coin'))}</p>
   <p>Idea: ${c.idea ? `${esc(c.idea.name)} (${esc(c.pickSource ?? '')})` : '<span class="muted">not picked</span>'}</p>
   ${votes ? `<p>Votes: ${votes}</p>` : ''}
@@ -97,10 +119,10 @@ function competitionControls(g, ui) {
       <label for="inj-coins">Coins (1 to 500) <input id="inj-coins" type="number" min="1" max="500" step="1" value="${esc(d ? d.coins : '')}"></label>
       <button id="inj-ask"${dis(ui)}>Inject coins</button></p>`;
   const log = arr(g.attacks);
-  const logPart = `<h3>Attack log</h3>${log.length
+  const logPart = `<h3 id="sec-attacks">Attack log</h3>${log.length
     ? `<ul>${log.map((a) => `<li>${esc(a.name)}: Company ${esc(a.attacker)} against ${esc(a.victim)}, cost ${esc(a.cost)}${a.blocked ? ', blocked by a shield' : ''}</li>`).join('')}</ul>`
     : '<p class="muted">No attacks yet.</p>'}`;
-  return `<section class="card"><h2>Competition controls</h2>${eventPart}${injPart}${logPart}</section>`;
+  return `<section class="card" id="sec-event"><h2>Competition controls</h2><div id="sec-inject"></div>${eventPart}${injPart}${logPart}</section>`;
 }
 
 function seatTools(v, ui) {
@@ -120,7 +142,7 @@ const PNGS = [['company-vs-company', 'Company vs company'], ['coin-difference', 
 function resultsControls(g, ui) {
   const id = esc(g.id);
   const reveal = g.ended && !g.revealed ? `<p><button id="reveal" class="primary"${dis(ui)}>Reveal graphs</button></p>` : '';
-  return `<section class="card"><h2>Results</h2>${reveal}<p><button id="next-game"${dis(ui)}>Next Game</button></p></section>`;
+  return `<section class="card" id="sec-results"><h2>Results</h2>${reveal}<p><button id="next-game"${dis(ui)}>Next Game</button></p></section>`;
 }
 
 // Always shown (lobby, running, between games). organizer.js completes the links at click time.
@@ -139,7 +161,21 @@ function downloadsPanel(d) {
   ${games.length ? `<ul>${games.map(row).join('')}</ul>` : '<p class="muted">No games yet.</p>'}</section>`;
 }
 
-export function renderOrganizer(v, ui = {}) {
+const NAV = [
+  ['sec-roster', 'Roster'], ['sec-lobby', 'Lobby & roles'], ['sec-start', 'Start'],
+  ['sec-controls', 'Game control'], ['sec-companies', 'Live monitor'],
+  ['sec-attacks', 'Attacks'], ['sec-event', 'Market event'], ['sec-inject', 'Coin injection'], ['sec-results', 'Results']
+];
+
+function shell(inner) {
+  const links = NAV.filter(([id]) => inner.includes(`id="${id}"`)).map(([id, label]) => `<a href="#${id}">${label}</a>`).join('');
+  return `<div class="frame"><div class="brandbox">${logo()}</div>
+  <div class="head"><p class="h1">Future <b>Makers</b></p><p class="sub2">Startup Showdown</p></div>
+  <nav class="side" aria-label="Organizer sections"><p class="side-who">Organizer panel</p>${links}</nav>
+  <div class="desk">${inner}</div></div>`;
+}
+
+function renderOrganizerInner(v, ui = {}) {
   if (!v || typeof v !== 'object') return '<main><p class="error">No data.</p></main>';
   ui = ui || {};
   const off = ui.offline ? renderOffline() : '';
@@ -152,11 +188,15 @@ export function renderOrganizer(v, ui = {}) {
   const stuck = arr(v.game.stuck);
   const banner = stuck.length
     ? `<p class="warn" role="alert">Warning: the ${stuck.map(esc).join(', ')} phase could not finish. Check the server log.</p>` : '';
-  const controls = `<section class="card"><h2>Controls</h2>
+  const controls = `<section class="card" id="sec-controls"><h2>Controls</h2>
   ${clock.phase === 'ideation' ? confirmButton('end ideation early', 'end_ideation_early', ui) : ''}
   ${['briefing', 'ideation', 'shop', 'summary'].includes(clock.phase)
     ? `<p class="muted">Rehearsal and testing only:</p>${confirmButton('skip to next phase', 'skip_phase', ui)}` : ''}</section>`;
-  return `<header class="bar"><span>Game ${esc(v.game.id)}</span><span class="phase">${esc(clock.phase)}</span><span id="clock">${fmtClock(clock.remainingSec)}</span></header>
+  return `<header class="bar"><span>Game ${esc(v.game.id)}</span><span class="phase">${esc(clock.phase)}</span><span class="timer"><span class="pill"><span id="clock">${fmtClock(clock.remainingSec)}</span></span></span></header>
   <main>${rehearsal}${banner}${err}${backupLine(v.backup)}${controls}${clock.phase === 'briefing' ? seatTools(v, ui) : ''}${clock.phase === 'competition' ? competitionControls(v.game, ui) : ''}${resultsControls(v.game, ui)}${downloadsPanel(v.downloads)}</main>
-  <main class="two">${panel('A', companies.A, v.game.ideas)}${panel('B', companies.B, v.game.ideas)}</main>`;
+  <main class="two" id="sec-companies">${panel('A', companies.A, v.game.ideas)}${panel('B', companies.B, v.game.ideas)}</main>`;
+}
+
+export function renderOrganizer(v, ui = {}) {
+  return shell(renderOrganizerInner(v, ui));
 }
