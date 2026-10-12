@@ -7,6 +7,7 @@ import { triggerMarketEvent, injectCoins } from './marketEvents.js';
 import { tickEconomy } from './economy.js';
 import { evaluateHints } from './hints.js';
 import { WebSocketServer } from 'ws';
+import { normId } from './roster.js';
 import { participantLogin, organizerLogin } from './auth.js';
 import { activeGame } from './persist.js';
 import { phaseAt } from './phases.js';
@@ -34,6 +35,8 @@ const GLOBAL_GAP_MS = 1000;
 const SMALL_MSG = 4096;
 const BIG_MSG = 262144;
 const COALESCE_MS = 200;
+const RATE_PER_SEC = 30;
+const RATE_BURST = 60;
 
 const bad = () => new Error('bad_message');
 const str = (v) => { if (typeof v !== 'string') throw bad(); return v; };
@@ -57,6 +60,7 @@ export function createApp({
   setTimer = (fn, ms) => setTimeout(fn, ms).unref(), clearTimer = clearTimeout,
   backupDir = 'backups', backup = backupDb, backupKeep = 50, backupTimeoutMs = 60_000, speed = 1,
   join = () => joinConfigFromEnv(process.env),
+  mono = () => performance.now(),
 }) {
   const ctx = { db, data, now, exportDir, backupDir, speed };
   const handler = staticRoot
@@ -92,6 +96,8 @@ export function createApp({
   const sessions = new Map(); // ws -> { kind: 'organizer' } | { kind: 'participant', admissionId }
   const attempts = new WeakMap(); // ws -> { fails: [ts], lockedUntil }
   const alive = new WeakMap();
+  const buckets = new WeakMap(); // ws -> { tokens, at }
+  const dropped = new WeakSet();
   const global = { fails: [], lastAllowed: -Infinity };
   const lastPhase = new Map(); // gameId -> phase last seen by the tick
   let dirty = false;
@@ -285,6 +291,15 @@ export function createApp({
       ws.terminate();
     });
     ws.on('message', (raw) => {
+      if (dropped.has(ws)) return;
+      // Token bucket per socket (infrastructure, so it uses the real monotonic clock, not game time).
+      const tm = mono();
+      const b = buckets.get(ws) || { tokens: RATE_BURST, at: tm };
+      b.tokens = Math.min(RATE_BURST, b.tokens + ((tm - b.at) / 1000) * RATE_PER_SEC);
+      b.at = tm;
+      buckets.set(ws, b);
+      if (b.tokens < 1) { dropped.add(ws); endSession(ws); return ws.terminate(); }
+      b.tokens -= 1;
       const size = raw.byteLength ?? raw.length;
       const kind = (sessions.get(ws) || {}).kind;
       if (size > SMALL_MSG && kind !== 'organizer') return ws.terminate();
@@ -326,7 +341,9 @@ export function createApp({
 
     if (msg.type === 'login') {
       if (typeof msg.admissionId !== 'string') return send(ws, { type: 'error', error: 'bad_message' });
-      const r = participantLogin(db, msg.admissionId, now());
+      const prior = sessions.get(ws);
+      const same = !!prior && prior.kind === 'participant' && prior.admissionId === normId(msg.admissionId);
+      const r = participantLogin(db, msg.admissionId, now(), !same);
       if (!r.ok) return send(ws, { type: 'error', error: r.error });
       sessions.set(ws, { kind: 'participant', admissionId: r.participant.admissionId });
       return send(ws, { type: 'welcome', view: r.view, participant: r.participant });
