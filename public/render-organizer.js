@@ -164,7 +164,7 @@ function downloadsPanel(d) {
 const NAV = [
   ['sec-roster', 'Roster'], ['sec-lobby', 'Lobby & roles'], ['sec-start', 'Start'],
   ['sec-controls', 'Game control'], ['sec-companies', 'Live monitor'],
-  ['sec-attacks', 'Attacks'], ['sec-event', 'Market event'], ['sec-inject', 'Coin injection'], ['sec-results', 'Results']
+  ['sec-attacks', 'Attacks'], ['sec-event', 'Market event'], ['sec-inject', 'Coin injection'], ['sec-results', 'Results'], ['downloads', 'Downloads']
 ];
 
 function shell(inner) {
@@ -191,7 +191,8 @@ function renderOrganizerInner(v, ui = {}) {
   const controls = `<section class="card" id="sec-controls"><h2>Controls</h2>
   ${clock.phase === 'ideation' ? confirmButton('end ideation early', 'end_ideation_early', ui) : ''}
   ${['briefing', 'ideation', 'shop', 'summary'].includes(clock.phase)
-    ? `<p class="muted">Rehearsal and testing only:</p>${confirmButton('skip to next phase', 'skip_phase', ui)}` : ''}</section>`;
+    ? `<p class="muted">Rehearsal and testing only:</p>${confirmButton('skip to next phase', 'skip_phase', ui)}` : ''}
+  ${['ideation', 'briefing', 'shop', 'summary'].includes(clock.phase) ? '' : '<p class="muted">The clock runs this phase on its own.</p>'}</section>`;
   return `<header class="bar"><span>Game ${esc(v.game.id)}</span><span class="phase">${esc(clock.phase)}</span><span class="timer"><span class="pill"><span id="clock">${fmtClock(clock.remainingSec)}</span></span></span></header>
   <main>${rehearsal}${banner}${err}${backupLine(v.backup)}${controls}${clock.phase === 'briefing' ? seatTools(v, ui) : ''}${clock.phase === 'competition' ? competitionControls(v.game, ui) : ''}${resultsControls(v.game, ui)}${downloadsPanel(v.downloads)}</main>
   <main class="two" id="sec-companies">${panel('A', companies.A, v.game.ideas)}${panel('B', companies.B, v.game.ideas)}</main>`;

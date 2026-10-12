@@ -24,7 +24,7 @@ main.home > * + * { margin-top: 0; }
 .hero { grid-column: 1 / -1; border: var(--line) solid var(--ink); box-shadow: 4px 4px 0 var(--ink); padding: clamp(14px, 3vw, 32px); position: relative; overflow: hidden; }
 .hero::after { content: ""; position: absolute; right: -40px; bottom: -40px; width: 240px; height: 240px; border-radius: 50%; background: var(--team); border: var(--line) solid var(--ink); z-index: -1; }
 .hero { isolation: isolate; }
-@media (max-width: 640px) { .hero::after { width: 150px; height: 150px; right: -70px; bottom: -80px; } }
+@media (max-width: 640px) { .hero::after { width: 150px; height: 150px; right: -70px; bottom: -80px; } .hero .flow { padding-right: 72px; } }
 .hero h1 { margin: 0; font: 400 clamp(2rem, 6vw, 4.4rem)/.95 var(--block); }
 .hero h1 span { display: block; color: var(--team); -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; }
 .hero .flow { margin: 12px 0 0; font-size: .9rem; text-transform: uppercase; }

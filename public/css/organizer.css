@@ -21,6 +21,7 @@
 .desk header.bar .phase { justify-self: end; font: 700 .95rem var(--mono); color: var(--ink); }
 
 /* lobby table and seat pickers */
+#join-sign { display: inline-flex; align-items: center; min-height: var(--tap); font-weight: 700; }
 #sec-lobby select { min-height: var(--tap); padding: 4px 8px; margin: 2px 4px 2px 0; }
 #sec-lobby td button { min-height: var(--tap); padding: 4px 12px; }
 .import-result { border: var(--line) dashed var(--ink); padding: 8px 12px; margin: 10px 0; }
