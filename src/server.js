@@ -18,6 +18,7 @@ import { swapSeats, replacePlayer } from './seats.js';
 import { castVote, pickIdea, endIdeationNow } from './ideation.js';
 import { requestItem, recommendItem, ceoDecide, cfoDecide } from './shop.js';
 import { skipToNextPhase } from './skip.js';
+import { revealGame, nextGame } from './results.js';
 import { viewFor, organizerView } from './views.js';
 import { startPuzzle, submitPuzzle, skipPuzzle, NoPuzzleOpenError } from './minigame.js';
 
@@ -48,10 +49,10 @@ const answerOf = (v) => {
 const TRY_AGAIN = 'could not make a puzzle just now, please try again';
 
 export function createApp({
-  db, organizerPassword, now = Date.now, data = loadData(), staticRoot = 'public', director = runDirector,
+  db, organizerPassword, now = Date.now, data = loadData(), staticRoot = 'public', exportDir = 'data/graphs', director = runDirector,
   setTimer = (fn, ms) => setTimeout(fn, ms).unref(), clearTimer = clearTimeout,
 }) {
-  const ctx = { db, data, now };
+  const ctx = { db, data, now, exportDir };
   const handler = staticRoot
     ? staticHandler(staticRoot)
     : (req, res) => { res.writeHead(404); res.end(); };
@@ -137,6 +138,14 @@ export function createApp({
       const g = needGame();
       endGame(db, g.id, now());
       logAct('end_game', {}, g.id);
+    },
+    reveal: () => {
+      const g = needGame();
+      revealGame(ctx, g);
+    },
+    next_game: () => {
+      const g = needGame();
+      nextGame(ctx, g);
     },
     skip_phase: () => {
       const g = needGame();

@@ -13,10 +13,13 @@ import { rolePoints } from './levels.js';
 import { activeEvent } from './marketEvents.js';
 import { activeAttacks } from './attacks.js';
 import { latestHint } from './hints.js';
+import { graphsFor } from './results.js';
 import { openPuzzle, publicPuzzle, levelFor, rewardFor, FREE_SKIPS } from './minigame.js';
 
 const puzzleCount = (db, gameId, company, result) =>
   prep(db, 'SELECT COUNT(*) AS n FROM puzzle_sessions WHERE game_id=? AND company=? AND result=?').get(gameId, company, result).n;
+
+const revealed = (ctx, game) => !!prep(ctx.db, 'SELECT revealed_at FROM games WHERE id=?').get(game.id).revealed_at;
 
 const ADDERS = ['CTO', 'CMO', 'COO'];
 
@@ -169,7 +172,7 @@ export function viewFor(ctx, admissionId, cache = null) {
   if (!p) return { screen: 'unknown' };
   const me = meOf(p);
   if (p.status === 'lobby') return { me, screen: 'lobby' };
-  if (p.status === 'completed') return { me, screen: 'graphs', gameId: p.game_id };
+  if (p.status === 'completed') return { me, screen: 'graphs', gameId: p.game_id, graphs: graphsFor(ctx, p.game_id) };
   const game = activeGame(ctx.db);
   if (!game) return { me, screen: 'lobby' };
   const clock = phaseAt(game, ctx.now());
@@ -197,6 +200,7 @@ export function viewFor(ctx, admissionId, cache = null) {
     owned: ownedList(ctx, game, p.company, idea),
     ...(clock.phase === 'competition' ? { competition: competitionView(ctx, game, p, clock, cache) } : {}),
     summary: clock.phase === 'summary' ? summaryCard(ctx, game, p.company) : null,
+    ...(clock.phase === 'ended' && revealed(ctx, game) ? { results: graphsFor(ctx, game.id) } : {}),
   };
 }
 
@@ -220,7 +224,7 @@ export function organizerView(ctx, cache = null) {
   };
   return {
     screen: 'organizer', participants, problems,
-    game: { id: game.id, problemId: game.problemId, stuck: stuckPhases(ctx.db, game.id), clock: phaseAt(game, ctx.now()), companies: { A: panel('A'), B: panel('B') },
+    game: { id: game.id, problemId: game.problemId, stuck: stuckPhases(ctx.db, game.id), clock: phaseAt(game, ctx.now()), ended: phaseAt(game, ctx.now()).phase === 'ended', revealed: revealed(ctx, game), companies: { A: panel('A'), B: panel('B') },
       puzzles: Object.fromEntries(['A', 'B'].map((c) => [c, {
         solved: puzzleCount(ctx.db, game.id, c, 'solved'),
         skipped: puzzleCount(ctx.db, game.id, c, 'skipped'),
