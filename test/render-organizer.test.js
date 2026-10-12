@@ -214,3 +214,14 @@ test('the live attack log lists attacks', () => {
   assert.match(html, /Price Squeeze/);
   assert.match(html, /blocked/i);
 });
+
+test('the backup line shows time and ok, or a red failure message, and escapes text', () => {
+  const base = { screen: 'organizer', problems: [], participants: [], game: null };
+  assert.ok(!renderOrganizer({ ...base, backup: null }).includes('Last backup'));
+  const ok = renderOrganizer({ ...base, backup: { ok: true, at: 0, file: '/x.db', error: null } });
+  assert.match(ok, /Last backup \d\d:\d\d, ok/);
+  const bad = renderOrganizer({ ...base, backup: { ok: false, at: 0, file: null, error: HOSTILE } });
+  assert.match(bad, /Backup failed: /);
+  assert.ok(!bad.includes('<script>'));
+  assert.match(bad, /class="error"[^>]*id="backup-status"|id="backup-status"[^>]*class="error"/);
+});

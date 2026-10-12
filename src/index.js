@@ -16,12 +16,15 @@ export function checkPassword(pw) {
   return { ok: true };
 }
 
-export async function bootstrap({ dbFile, organizerPassword, port, now = Date.now, real = now }) {
+export async function bootstrap({
+  dbFile, organizerPassword, port, now = Date.now, real = now,
+  backupDir = 'backups', backupEveryMs = 5 * 60_000, timers = { setInterval, clearInterval },
+}) {
   if (dbFile !== ':memory:') mkdirSync(dirname(dbFile), { recursive: true });
   const db = openDb(dbFile);
   const clock = createClock({ real });
   resumeActiveGame(db, clock);
-  const app = createApp({ db, organizerPassword, now: clock.now });
+  const app = createApp({ db, organizerPassword, now: clock.now, backupDir });
   app.db = db;
   await new Promise((resolve) => app.server.listen(port, '0.0.0.0', resolve));
 
@@ -48,6 +51,15 @@ export async function bootstrap({ dbFile, organizerPassword, port, now = Date.no
     }
   }, 5000);
 
+  // Every 5 minutes while a game runs (and only then); a failure is stored for the organizer and the next tick retries.
+  const backupTimer = timers.setInterval(() => {
+    try {
+      if (activeGame(db)) app.runBackup('during').catch(() => {});
+    } catch (err) {
+      console.error('backup tick failed:', err);
+    }
+  }, backupEveryMs);
+
   return {
     app,
     clock,
@@ -55,8 +67,11 @@ export async function bootstrap({ dbFile, organizerPassword, port, now = Date.no
       clearInterval(tick);
       clearInterval(beat);
       clearInterval(ping);
+      timers.clearInterval(backupTimer);
       app.wss.close();
       await new Promise((r) => app.server.close(r));
+      // let a running backup finish (but never wait on a hung one) before the database closes
+      await Promise.race([app.backupIdle(), new Promise((r) => setTimeout(r, 2000).unref())]);
       db.close();
     },
   };
@@ -70,6 +85,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(1);
   }
   const port = Number(process.env.PORT || 80);
-  await bootstrap({ dbFile: process.env.DB_FILE || 'data/showdown.db', organizerPassword, port });
+  await bootstrap({
+    dbFile: process.env.DB_FILE || 'data/showdown.db', organizerPassword, port,
+    backupDir: process.env.BACKUP_DIR || 'backups',
+    backupEveryMs: Number(process.env.BACKUP_EVERY_MS) || 5 * 60_000,
+  });
   console.log(`Showdown server listening on port ${port}`);
 }

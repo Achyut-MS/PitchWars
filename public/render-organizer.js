@@ -30,6 +30,14 @@ function importSummary(r) {
   ${rows ? `<ul class="rejected">${rows}</ul>` : ''}</div>`;
 }
 
+const hhmm = (ms) => { const d = new Date(Number(ms) || 0); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+function backupLine(b) {
+  if (!b || typeof b !== 'object') return '';
+  return b.ok
+    ? `<p class="muted" id="backup-status">Last backup ${hhmm(b.at)}, ok</p>`
+    : `<p class="error" id="backup-status" role="alert">Backup failed: ${esc(b.error ?? 'unknown error')} (${hhmm(b.at)}). The game carries on; the next try is in 5 minutes.</p>`;
+}
+
 function lobby(v, ui) {
   const ps = arr(v.participants);
   const seated = ps.filter((p) => p.status === 'lobby' && p.company && p.role).length;
@@ -122,7 +130,7 @@ export function renderOrganizer(v, ui = {}) {
   ui = ui || {};
   const off = ui.offline ? renderOffline() : '';
   const err = off + (ui.error ? `<p class="error" role="alert" id="org-error">${esc(ui.error)}</p>` : '');
-  if (!v.game) return `<main>${err}${lobby(v, ui)}</main>`;
+  if (!v.game) return `<main>${err}${backupLine(v.backup)}${lobby(v, ui)}</main>`;
   const clock = v.game.clock ?? { phase: '?', remainingSec: 0 };
   const companies = v.game.companies ?? {};
   const stuck = arr(v.game.stuck);
@@ -133,6 +141,6 @@ export function renderOrganizer(v, ui = {}) {
   ${['briefing', 'ideation', 'shop', 'summary'].includes(clock.phase)
     ? `<p class="muted">Rehearsal and testing only:</p>${confirmButton('skip to next phase', 'skip_phase', ui)}` : ''}</section>`;
   return `<header class="bar"><span>Game ${esc(v.game.id)}</span><span class="phase">${esc(clock.phase)}</span><span id="clock">${fmtClock(clock.remainingSec)}</span></header>
-  <main>${banner}${err}${controls}${clock.phase === 'briefing' ? seatTools(v, ui) : ''}${clock.phase === 'competition' ? competitionControls(v.game, ui) : ''}${resultsControls(v.game, ui)}</main>
+  <main>${banner}${err}${backupLine(v.backup)}${controls}${clock.phase === 'briefing' ? seatTools(v, ui) : ''}${clock.phase === 'competition' ? competitionControls(v.game, ui) : ''}${resultsControls(v.game, ui)}</main>
   <main class="two">${panel('A', companies.A, v.game.ideas)}${panel('B', companies.B, v.game.ideas)}</main>`;
 }

@@ -214,7 +214,8 @@ export function organizerView(ctx, cache = null) {
   const participants = prep(ctx.db, 'SELECT admission_id, name, status, company, role, game_id FROM participants ORDER BY admission_id').all();
   const problems = ctx.data.problems.map(({ id, title }) => ({ id, title }));
   const game = activeGame(ctx.db);
-  if (!game) return { screen: 'organizer', participants, problems, game: null };
+  const backup = ctx.backupStatus ? ctx.backupStatus() : null;
+  if (!game) return { screen: 'organizer', participants, problems, game: null, backup };
   const panel = (company) => {
     const cs = companyState(ctx.db, game.id, company);
     const idea = ideaOf(ctx, game, company);
@@ -229,7 +230,7 @@ export function organizerView(ctx, cache = null) {
     };
   };
   return {
-    screen: 'organizer', participants, problems,
+    screen: 'organizer', participants, problems, backup,
     game: { id: game.id, problemId: game.problemId, stuck: stuckPhases(ctx.db, game.id), clock: phaseAt(game, ctx.now()), ended: phaseAt(game, ctx.now()).phase === 'ended', revealed: revealed(ctx, game), companies: { A: panel('A'), B: panel('B') },
       puzzles: Object.fromEntries(['A', 'B'].map((c) => [c, {
         solved: puzzleCount(ctx.db, game.id, c, 'solved'),

@@ -19,6 +19,7 @@ import { castVote, pickIdea, endIdeationNow } from './ideation.js';
 import { requestItem, recommendItem, ceoDecide, cfoDecide } from './shop.js';
 import { skipToNextPhase } from './skip.js';
 import { revealGame, nextGame } from './results.js';
+import { backupDb, pruneBackups } from './backup.js';
 import { viewFor, organizerView } from './views.js';
 import { startPuzzle, submitPuzzle, skipPuzzle, NoPuzzleOpenError } from './minigame.js';
 
@@ -51,8 +52,9 @@ const TRY_AGAIN = 'could not make a puzzle just now, please try again';
 export function createApp({
   db, organizerPassword, now = Date.now, data = loadData(), staticRoot = 'public', exportDir = 'data/graphs', director = runDirector,
   setTimer = (fn, ms) => setTimeout(fn, ms).unref(), clearTimer = clearTimeout,
+  backupDir = 'backups', backup = backupDb, backupKeep = 50, backupTimeoutMs = 60_000,
 }) {
-  const ctx = { db, data, now, exportDir };
+  const ctx = { db, data, now, exportDir, backupDir };
   const handler = staticRoot
     ? staticHandler(staticRoot)
     : (req, res) => { res.writeHead(404); res.end(); };
@@ -95,6 +97,39 @@ export function createApp({
   function markDirty() {
     dirty = true;
     if (!timer) timer = setTimer(() => { timer = null; try { flush(); } catch (e) { console.error('flush failed:', e); } }, COALESCE_MS);
+  }
+
+  // Backups: one at a time, never throw, never wait forever; the organizer (only) sees the outcome.
+  let backupStatus = null;
+  let backupFlight = null;
+  ctx.backupStatus = () => backupStatus;
+  function runBackup(label) {
+    if (backupFlight) return backupFlight;
+    const flight = (async () => {
+      let tm;
+      try {
+        const job = Promise.resolve().then(() => backup(db, ctx.backupDir, label, now()));
+        job.catch(() => {});
+        const file = await Promise.race([
+          job,
+          new Promise((_, rej) => { tm = setTimer(() => rej(new Error('backup timed out')), backupTimeoutMs); }),
+        ]);
+        try { pruneBackups(ctx.backupDir, backupKeep); } catch (e) { console.error('prune failed:', e); }
+        backupStatus = { ok: true, at: now(), file, error: null };
+      } catch (e) {
+        const error = String(e?.message ?? e);
+        backupStatus = { ok: false, at: now(), file: null, error };
+        try { logEvent(db, { ts: now(), type: 'backup_failed', payload: { label, error } }); } catch { /* db unavailable */ }
+        console.error('backup failed:', error);
+      } finally {
+        if (tm) clearTimer(tm);
+        backupFlight = null;
+      }
+      try { markDirty(); } catch { /* ignore */ }
+      return backupStatus;
+    })();
+    backupFlight = flight;
+    return flight;
   }
 
   const needGame = () => { const g = activeGame(db); if (!g) throw new Error('no game is running'); return g; };
@@ -142,6 +177,7 @@ export function createApp({
     next_game: () => {
       const g = needGame();
       nextGame(ctx, g);
+      runBackup('after'); // fire and forget: never delays or fails this action
       logAct('next_game', {}, g.id);
     },
     skip_phase: () => {
@@ -332,5 +368,10 @@ export function createApp({
     }
   }
 
-  return { server, wss, tickAll, pingAll, flush, ctx };
+  return {
+    server, wss, tickAll, pingAll, flush, ctx, runBackup,
+    get backupStatus() { return backupStatus; },
+    backupIdle: () => backupFlight ?? Promise.resolve(),
+    runAction: (type, m = {}) => organizerActions[type](m),
+  };
 }
