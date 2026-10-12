@@ -19,6 +19,7 @@ import { castVote, pickIdea, endIdeationNow } from './ideation.js';
 import { requestItem, recommendItem, ceoDecide, cfoDecide } from './shop.js';
 import { skipToNextPhase } from './skip.js';
 import { viewFor, organizerView } from './views.js';
+import { startPuzzle, submitPuzzle, skipPuzzle } from './minigame.js';
 
 const MAX_FAILS = 5;
 const WINDOW_MS = 60_000;
@@ -35,6 +36,16 @@ const optStr = (v) => { if (v === undefined || v === null) return null; return s
 const int = (v) => { if (!Number.isSafeInteger(v)) throw bad(); return v; };
 const bool = (v) => { if (typeof v !== 'boolean') throw bad(); return v; };
 const has = (o, k) => Object.hasOwn(o, k);
+const MAX_ANSWER_CHARS = 20000;
+// A puzzle answer is an object or array of bounded size; checked before it reaches the engine.
+const answerOf = (v) => {
+  if (v === null || typeof v !== 'object') throw bad();
+  let s;
+  try { s = JSON.stringify(v); } catch { throw bad(); }
+  if (typeof s !== 'string' || s.length > MAX_ANSWER_CHARS) throw bad();
+  return v;
+};
+const TRY_AGAIN = 'could not make a puzzle just now, please try again';
 
 export function createApp({
   db, organizerPassword, now = Date.now, data = loadData(), staticRoot = 'public', director = runDirector,
@@ -159,6 +170,13 @@ export function createApp({
     ceo_decide: (id, m, g) => ceoDecide(ctx, g, id, int(m.requestId), bool(m.approve)),
     cfo_decide: (id, m, g) => cfoDecide(ctx, g, id, int(m.requestId), bool(m.approve)),
     attack: (id, m, g) => launchAttack(ctx, g, id, str(m.key)),
+    puzzle_next: (id, m, g) => {
+      let row;
+      try { row = startPuzzle(ctx, g, id); } catch (e) { if (e && e.constructor === Error && /^(only the CFO|puzzles are only|not in this game)/.test(e.message)) throw e; throw new Error(TRY_AGAIN); }
+      if (!row) throw new Error(TRY_AGAIN);
+    },
+    puzzle_submit: (id, m, g) => submitPuzzle(ctx, g, id, answerOf(m.answer)),
+    puzzle_skip: (id, m, g) => { skipPuzzle(ctx, g, id); },
   };
 
   // Plain Errors thrown by the game rules carry player-facing text; anything else
@@ -243,6 +261,7 @@ export function createApp({
         if (!p || p.status !== 'in_game' || p.game_id !== game.id) throw new Error('you are not in this game');
         const r = participantActions[msg.type](s.admissionId, msg, game);
         // Direct reply to the attacker only: never anything about the victim's state.
+        if (msg.type === 'puzzle_submit') send(ws, { type: 'puzzle_result', ok: !!(r && r.ok), coins: r ? r.coins : 0 });
         if (msg.type === 'attack') send(ws, { type: 'attack_result', blocked: !!(r && r.blocked), endsAt: r && r.endsAt });
       } else {
         return send(ws, { type: 'error', error: 'bad_message' });

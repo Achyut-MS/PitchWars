@@ -7,12 +7,16 @@ import { shopOpenAt, warningFor, newestWarningOnly } from './warnings.js';
 import { saleMultiplier } from './marketEvents.js';
 import { itemLabel } from './labels.js';
 import { stuckPhases } from './director.js';
-import { ATTACKS, attackByKey, attackCooldownUntil, hasShield } from './attacks.js';
+import { ATTACKS, attackByKey, attackCooldownUntil, hasShield, isLocked } from './attacks.js';
 import { effectiveRates } from './rates.js';
 import { rolePoints } from './levels.js';
 import { activeEvent } from './marketEvents.js';
 import { activeAttacks } from './attacks.js';
 import { latestHint } from './hints.js';
+import { openPuzzle, publicPuzzle, levelFor, rewardFor, FREE_SKIPS } from './minigame.js';
+
+const puzzleCount = (db, gameId, company, result) =>
+  prep(db, 'SELECT COUNT(*) AS n FROM puzzle_sessions WHERE game_id=? AND company=? AND result=?').get(gameId, company, result).n;
 
 const ADDERS = ['CTO', 'CMO', 'COO'];
 
@@ -141,7 +145,23 @@ function competitionView(ctx, game, p, clock, cache) {
       .map((a) => ({ name: attackByKey(a.key)?.name ?? a.key, cost: a.cost, at: a.launched_at, status: a.blocked ? 'blocked' : 'landed' }));
     attack = { options: ATTACKS.map(({ key, name, cost }) => ({ key, name, cost })), cooldownLeftSec, lockedReason, launches };
   }
-  return { rates: shared.rates, level: shared.level, notices, hint: hint && { text: hint.text }, shield, attack };
+  let puzzleBlock = {};
+  if (p.role === 'CFO') {
+    const row = openPuzzle(ctx.db, game.id, p.company);
+    const solved = puzzleCount(ctx.db, game.id, p.company, 'solved');
+    const skipped = puzzleCount(ctx.db, game.id, p.company, 'skipped');
+    // The jam is never named: the CFO only sees the reward actually on offer.
+    const halved = isLocked(ctx, game, p.company, 'minigame_half', t);
+    const pay = (lvl) => (halved ? Math.floor(rewardFor(lvl) / 2) : rewardFor(lvl));
+    const pub = row ? publicPuzzle(ctx.db, row) : null;
+    const lvl = row ? row.level : levelFor(solved);
+    puzzleBlock = {
+      puzzle: pub && { ...pub, reward: pay(row.level) },
+      puzzlesDone: { solved, skipped },
+      puzzlePanel: { level: lvl, solved, skipsFreeLeft: Math.max(0, FREE_SKIPS - skipped), nextReward: pay(lvl), miniCoins: companyState(ctx.db, game.id, p.company)?.mini_coins ?? 0 },
+    };
+  }
+  return { rates: shared.rates, level: shared.level, notices, hint: hint && { text: hint.text }, shield, attack, ...puzzleBlock };
 }
 
 export function viewFor(ctx, admissionId, cache = null) {
@@ -201,6 +221,11 @@ export function organizerView(ctx, cache = null) {
   return {
     screen: 'organizer', participants, problems,
     game: { id: game.id, problemId: game.problemId, stuck: stuckPhases(ctx.db, game.id), clock: phaseAt(game, ctx.now()), companies: { A: panel('A'), B: panel('B') },
+      puzzles: Object.fromEntries(['A', 'B'].map((c) => [c, {
+        solved: puzzleCount(ctx.db, game.id, c, 'solved'),
+        skipped: puzzleCount(ctx.db, game.id, c, 'skipped'),
+        coins: prep(ctx.db, "SELECT COALESCE(SUM(coins), 0) AS n FROM puzzle_sessions WHERE game_id=? AND company=? AND result='solved'").get(game.id, c).n,
+      }])),
       attacks: prep(ctx.db, 'SELECT * FROM attacks WHERE game_id=? ORDER BY id').all(game.id).map((a) => ({
         id: a.id, attacker: a.attacker, victim: a.victim, name: attackByKey(a.key)?.name ?? a.key,
         cost: a.cost, at: a.launched_at, endsAt: a.end_at, blocked: !!a.blocked, by: a.launched_by,
