@@ -222,9 +222,17 @@ function summary(v) {
   <p class="big">${esc(plural(s.wallet, 'coin'))} left</p></section></main>`;
 }
 
+const THANKS = '<main><section class="card"><h2>Thank you for playing</h2></section></main>';
+
+// The SVG strings come from the server and are built from numbers and fixed labels only
+// (no player text), so they are inserted as markup.
+function graphsHtml(g) {
+  return `<main class="results"><section class="card">${g.companyVsCompany}</section><section class="card">${g.coinDifference}</section><section class="card">${g.roleBars}</section></main>`;
+}
+
 export function renderScreen(v) {
   if (v.screen === 'lobby') return `<main><section class="card"><h2>Hello ${esc(v.me.name)}</h2><p>Waiting for the organizer to start the game.</p></section></main>`;
-  if (v.screen === 'graphs') return '<main><section class="card"><h2>Thank you for playing</h2></section></main>';
+  if (v.screen === 'graphs') return v.graphs ? `<main><h2>Game ${esc(v.gameId)}</h2></main>${graphsHtml(v.graphs)}` : THANKS;
   if (v.screen !== 'game') return '<main><section class="card"><p>Something went wrong. Please reload.</p></section></main>';
   switch (v.clock.phase) {
     case 'briefing': return briefing(v);
@@ -232,6 +240,6 @@ export function renderScreen(v) {
     case 'shop': return shop(v);
     case 'competition': return renderCompetition(v);
     case 'summary': return summary(v);
-    default: return '<main><section class="card"><h2>Thank you for playing</h2></section></main>';
+    default: return v.results ? graphsHtml(v.results) : THANKS;
   }
 }

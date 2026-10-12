@@ -139,7 +139,9 @@ document.addEventListener('click', (e) => {
     draw(true);
     return;
   }
-  if (t.id === 'start-yes') guarded({ type: 'start_game', problemId: Number(val('problem')) });
+  if (t.id === 'reveal') guarded({ type: 'reveal' });
+  else if (t.id === 'next-game') { if (confirm('End this game and mark the players Game Completed?')) guarded({ type: 'next_game' }); }
+  else if (t.id === 'start-yes') guarded({ type: 'start_game', problemId: Number(val('problem')) });
   else if (t.id === 'import') guarded({ type: 'roster_import', text: val('roster') });
   else if (t.id === 'add') {
     guarded({ type: 'add_participant', admissionId: val('add-id'), name: val('add-name') });

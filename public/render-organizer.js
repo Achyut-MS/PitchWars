@@ -106,6 +106,17 @@ function seatTools(v, ui) {
   <button id="replace"${dis(ui)}>Replace player</button></p></section>`;
 }
 
+const PNGS = [['company-vs-company', 'Company vs company'], ['coin-difference', 'Coin difference'], ['role-bars', 'Coins by role']];
+
+function resultsControls(g, ui) {
+  const id = esc(g.id);
+  const reveal = g.ended && !g.revealed ? `<p><button id="reveal" class="primary"${dis(ui)}>Reveal graphs</button></p>` : '';
+  const downloads = g.revealed
+    ? `<p><a href="/export/game/${id}.xlsx" data-export>Download this game (Excel)</a> <a href="/export/event.xlsx" data-export>Download the whole event (Excel)</a></p>
+  <p>${PNGS.map(([stem, name]) => `<a href="/export/game/${id}/${stem}.png" data-export>${esc(name)} (PNG)</a>`).join(' ')}</p>` : '';
+  return `<section class="card"><h2>Results</h2>${reveal}<p><button id="next-game"${dis(ui)}>Next Game</button></p>${downloads}</section>`;
+}
+
 export function renderOrganizer(v, ui = {}) {
   if (!v || typeof v !== 'object') return '<main><p class="error">No data.</p></main>';
   ui = ui || {};
@@ -123,6 +134,6 @@ export function renderOrganizer(v, ui = {}) {
     ? `<p class="muted">Rehearsal and testing only:</p>${confirmButton('skip to next phase', 'skip_phase', ui)}` : ''}
   ${confirmButton('end game', 'end_game', ui)}</section>`;
   return `<header class="bar"><span>Game ${esc(v.game.id)}</span><span class="phase">${esc(clock.phase)}</span><span id="clock">${fmtClock(clock.remainingSec)}</span></header>
-  <main>${banner}${err}${controls}${clock.phase === 'briefing' ? seatTools(v, ui) : ''}${clock.phase === 'competition' ? competitionControls(v.game, ui) : ''}</main>
+  <main>${banner}${err}${controls}${clock.phase === 'briefing' ? seatTools(v, ui) : ''}${clock.phase === 'competition' ? competitionControls(v.game, ui) : ''}${resultsControls(v.game, ui)}</main>
   <main class="two">${panel('A', companies.A, v.game.ideas)}${panel('B', companies.B, v.game.ideas)}</main>`;
 }
