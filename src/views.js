@@ -172,10 +172,16 @@ export function viewFor(ctx, admissionId, cache = null) {
   if (!p) return { screen: 'unknown' };
   const me = meOf(p);
   if (p.status === 'lobby') return { me, screen: 'lobby' };
-  if (p.status === 'completed') return { me, screen: 'graphs', gameId: p.game_id, graphs: graphsFor(ctx, p.game_id) };
+  if (p.status === 'completed') {
+    // Graphs only for the player's OWN game, and only once the organizer has revealed it.
+    const own = prep(ctx.db, 'SELECT revealed_at FROM games WHERE id=?').get(p.game_id);
+    return { me, screen: 'graphs', gameId: p.game_id, ...(own && own.revealed_at ? { graphs: graphsFor(ctx, p.game_id) } : {}) };
+  }
   const game = activeGame(ctx.db);
   if (!game) return { me, screen: 'lobby' };
   const clock = phaseAt(game, ctx.now());
+  // Ended but not revealed: nothing numeric about the game leaves the server.
+  const hold = clock.phase === 'ended' && !revealed(ctx, game);
   const cs = companyState(ctx.db, game.id, p.company);
   const idea = ideaOf(ctx, game, p.company);
   const problem = ctx.data.problems.find((x) => x.id === game.problemId);
@@ -193,11 +199,11 @@ export function viewFor(ctx, admissionId, cache = null) {
     };
   }
   return {
-    me, screen: 'game', clock: warningFor(clock) ? { ...clock, warning: warningFor(clock) } : clock, problem, wallet: cs?.wallet ?? 0,
+    me, screen: 'game', clock: warningFor(clock) ? { ...clock, warning: warningFor(clock) } : clock, problem, wallet: hold ? 0 : cs?.wallet ?? 0,
     idea: idea && { id: idea.id, type: idea.type, name: idea.name, description: idea.description },
     ideation,
     shop: clock.phase === 'shop' || clock.phase === 'competition' ? shopView(ctx, game, p, idea, clock.phase, cache) : null,
-    owned: ownedList(ctx, game, p.company, idea),
+    owned: hold ? [] : ownedList(ctx, game, p.company, idea),
     ...(clock.phase === 'competition' ? { competition: competitionView(ctx, game, p, clock, cache) } : {}),
     summary: clock.phase === 'summary' ? summaryCard(ctx, game, p.company) : null,
     ...(clock.phase === 'ended' && revealed(ctx, game) ? { results: graphsFor(ctx, game.id) } : {}),

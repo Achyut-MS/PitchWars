@@ -2,3 +2,5 @@ node_modules/
 .superpowers/
 *.db
 *.db-*
+data/graphs/
+backups/

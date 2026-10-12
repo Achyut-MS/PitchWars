@@ -76,3 +76,41 @@ test('reveal over the wire: players get nothing before, everyone gets it after; 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('end_game is gone, and Next Game without a reveal leaks nothing before it', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ws-exp-'));
+  const db = openDb();
+  let t = 0;
+  const app = createApp({ db, organizerPassword: 'pw', now: () => t, data, staticRoot: null, exportDir: dir });
+  await new Promise((r) => app.server.listen(0, r));
+  const url = `ws://127.0.0.1:${app.server.address().port}`;
+  const socks = [];
+  const mk = async () => { const c = await client(url); socks.push(c); return c; };
+  try {
+    const o = await mk();
+    await o.ask({ type: 'organizer', password: 'pw' });
+    let roster = '';
+    for (let i = 0; i < 10; i++) roster += `S${i},Player ${i}\n`;
+    await o.ask({ type: 'roster_import', text: roster });
+    const roles = ['CEO', 'CTO', 'CFO', 'CMO', 'COO'];
+    for (let i = 0; i < 10; i++) o.ws.send(JSON.stringify({ type: 'assign', admissionId: `S${i}`, company: i < 5 ? 'A' : 'B', role: roles[i % 5] }));
+    await sleep(150);
+    await o.ask({ type: 'start_game', problemId: 1 });
+    const p = await mk(); await p.ask({ type: 'login', admissionId: 'S0' });
+    t = 1_800_000;
+    await p.ask({ type: 'sync' });
+    const before = JSON.stringify(p.all);
+    assert.equal(/<svg|"results"|"graphs"/.test(before), false);
+    assert.equal((await o.ask({ type: 'end_game' })).error, 'bad_message');
+    assert.equal(db.prepare('SELECT ended_at FROM games').get().ended_at, null);
+    await o.ask({ type: 'next_game' });
+    await sleep(300);
+    const st = [...p.all].reverse().find((m) => m.type === 'state');
+    assert.equal(st.view.screen, 'graphs');
+    assert.ok(st.view.graphs);
+  } finally {
+    for (const c of socks) c.ws.terminate();
+    await new Promise((r) => app.server.close(r));
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -194,3 +194,46 @@ test('two finished games and a third running: a completed player only ever gets 
     assert.equal(c.screen, 'game'); assert.equal(c.graphs, undefined);
   } finally { cleanup(h); }
 });
+
+// ---- reveal gate fixes ----
+test('ended but unrevealed: the raw view carries no wallet, owned or numbers about the game', () => {
+  const h = finished();
+  const v = viewFor(h.ctx, h.seat.A.CEO);
+  assert.equal(v.clock.phase, 'ended');
+  assert.equal(v.wallet, 0);
+  assert.deepEqual(v.owned, []);
+  assert.equal(v.competition, undefined);
+  const real = h.db.prepare("SELECT wallet FROM company_state WHERE company='A'").get().wallet;
+  assert.notEqual(real, 0);
+  assert.equal(JSON.stringify(v).includes(String(real)), false);
+});
+
+test('Next Game without a prior reveal reveals and saves; before it nothing leaks', () => {
+  const h = withDir(finished());
+  try {
+    assert.equal(JSON.stringify(viewFor(h.ctx, h.seat.A.CEO)).includes('<svg'), false);
+    nextGame(h.ctx, h.game());
+    assert.ok(h.db.prepare('SELECT revealed_at FROM games').get().revealed_at);
+    assert.equal(viewFor(h.ctx, h.seat.B.CTO).graphs.roleBars.startsWith('<svg'), true);
+    assert.equal(readdirSync(h.ctx.exportDir).length, 1);
+  } finally { cleanup(h); }
+});
+
+test('a completed player of an unrevealed game sees only the holding screen, no graphs or coins', () => {
+  const h = finished();
+  h.db.prepare("UPDATE participants SET status='completed' WHERE game_id=?").run(h.gameId); // as the old end path did
+  const v = viewFor(h.ctx, h.seat.A.CEO);
+  assert.equal(v.screen, 'graphs');
+  assert.equal(v.graphs, undefined);
+  assert.equal(/<svg|wallet|coins/.test(JSON.stringify(v)), false);
+});
+
+test('reveal then Next Game still works', () => {
+  const h = withDir(finished());
+  try {
+    revealGame(h.ctx, h.game());
+    nextGame(h.ctx, h.game());
+    assert.equal(h.db.prepare("SELECT COUNT(*) AS n FROM events WHERE type='graphs_revealed'").get().n, 1);
+    assert.ok(viewFor(h.ctx, h.seat.A.CEO).graphs);
+  } finally { cleanup(h); }
+});

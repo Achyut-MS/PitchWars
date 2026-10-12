@@ -140,7 +140,7 @@ test('end to end: lobby, start, ideation, shop over real WebSockets', async () =
     for (let i = 5; i < 10; i++) for (const s of p[`S${i}`].seen.slice(from[`S${i}`])) assert.equal(s.includes('Smart Fridge Sensor'), false);
 
     // Organizer ends the game; the players are sent to the final screen.
-    org.fire({ type: 'end_game' });
+    org.fire({ type: 'next_game' });
     assert.equal((await p.S0.sync()).screen, 'graphs');
   } finally {
     for (const c of sockets) c.ws.terminate();

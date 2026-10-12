@@ -193,14 +193,14 @@ test('a participant cannot send organizer actions', async () => {
     { type: 'roster_import', text: 'Z9,Zed' }, { type: 'add_participant', admissionId: 'Z8', name: 'z' },
     { type: 'assign', admissionId: 'S11', company: 'A', role: 'CEO' }, { type: 'unassign', admissionId: 'S11' },
     { type: 'start_game', problemId: 1 }, { type: 'swap_seats', a: 'S0', b: 'S1' }, { type: 'replace_player', out: 'S0', in: 'S10' },
-    { type: 'end_game' }, { type: 'end_ideation_early' },
+    { type: 'next_game' }, { type: 'reveal' }, { type: 'end_game' }, { type: 'end_ideation_early' },
   ];
   for (const a of attempts) assert.deepEqual(await ask(p, a), { type: 'error', error: 'bad_message' }, a.type);
   assert.equal(db.prepare("SELECT COUNT(*) n FROM participants WHERE admission_id IN ('Z9','Z8')").get().n, 0);
   assert.equal(db.prepare('SELECT ended_at FROM games').get().ended_at, null);
   // and an unauthenticated socket
   const anon = await connect(url);
-  assert.deepEqual(await ask(anon, { type: 'end_game' }), { type: 'error', error: 'bad_message' });
+  assert.deepEqual(await ask(anon, { type: 'next_game' }), { type: 'error', error: 'bad_message' });
   await done(app, o, p, anon);
 });
 
@@ -216,8 +216,9 @@ test('a lobby player, a completed player and a rival-less session cannot act', a
   const ceo = await connect(url);
   await ask(ceo, { type: 'login', admissionId: 'S0' });
   const ceoPush = next(ceo);
-  assert.equal((await ask(o, { type: 'end_game' })).type, 'state');
-  const pushedFirst = await ceoPush; // the end_game push: now on the graphs screen
+  assert.equal((await ask(o, { type: 'end_game' })).error, 'bad_message'); // no such action any more
+  assert.equal((await ask(o, { type: 'next_game' })).type, 'state');
+  const pushedFirst = await ceoPush; // Next Game: completed, own game revealed by it
   assert.equal(pushedFirst.view.screen, 'graphs');
   const m = await ask(ceo, { type: 'pick', ideaId: 'H1' });
   assert.equal(m.type, 'error');
@@ -239,7 +240,7 @@ test('a status change pushes a new view to the affected players', async () => {
   await send(o, { type: 'start_game', problemId: 1 });
   assert.equal((await pushed).view.screen, 'game');
   const completed = next(p);
-  await send(o, { type: 'end_game' });
+  await send(o, { type: 'next_game' });
   assert.equal((await completed).view.screen, 'graphs');
   await done(app, o, p);
 });
@@ -265,15 +266,15 @@ test('unassign frees a seat and end_ideation_early shortens ideation; both are l
   await done(b.app, o2);
 });
 
-test('swap_seats, replace_player and end_game are organizer actions that log', async () => {
+test('swap_seats, replace_player and next_game are organizer actions that log', async () => {
   const { db, app, url, setT } = await boot();
   const o = await organizer(url);
   await runningGame(o, setT);
   assert.equal((await send(o, { type: 'swap_seats', a: 'S0', b: 'S1' })).type, 'state');
   assert.equal((await send(o, { type: 'replace_player', out: 'S2', in: 'S11' })).type, 'state');
-  assert.equal((await send(o, { type: 'end_game' })).type, 'state');
+  assert.equal((await send(o, { type: 'next_game' })).type, 'state');
   const types = db.prepare("SELECT payload FROM events WHERE type='organizer_action'").all().map((r) => JSON.parse(r.payload).action);
-  for (const a of ['swap_seats', 'replace_player', 'end_game']) assert.ok(types.includes(a), a);
+  for (const a of ['swap_seats', 'replace_player', 'next_game']) assert.ok(types.includes(a), a);
   await done(app, o);
 });
 

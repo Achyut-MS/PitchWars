@@ -13,7 +13,7 @@ import { staticHandler } from './static.js';
 import { runDirector } from './director.js';
 import { logEvent } from './events.js';
 import { importRoster, addParticipant } from './roster.js';
-import { assign, unassign, startGame, endGame } from './lobby.js';
+import { assign, unassign, startGame } from './lobby.js';
 import { swapSeats, replacePlayer } from './seats.js';
 import { castVote, pickIdea, endIdeationNow } from './ideation.js';
 import { requestItem, recommendItem, ceoDecide, cfoDecide } from './shop.js';
@@ -134,18 +134,15 @@ export function createApp({
       replacePlayer(db, g, g.id, str(m.out), str(m.in), now());
       logAct('replace_player', { out: m.out, in: m.in }, g.id);
     },
-    end_game: () => {
-      const g = needGame();
-      endGame(db, g.id, now());
-      logAct('end_game', {}, g.id);
-    },
     reveal: () => {
       const g = needGame();
       revealGame(ctx, g);
+      logAct('reveal', {}, g.id);
     },
     next_game: () => {
       const g = needGame();
       nextGame(ctx, g);
+      logAct('next_game', {}, g.id);
     },
     skip_phase: () => {
       const g = needGame();

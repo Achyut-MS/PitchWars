@@ -89,13 +89,10 @@ test('a running game shows both companies, their wallets, ideas and the clock', 
   assert.equal(html.includes('id="start"'), false);
 });
 
-test('a running game offers end game, with a two-step confirm', () => {
-  const first = renderOrganizer(running());
-  assert.match(first, /data-confirm="end_game"/);
-  assert.equal(first.includes('"type":"end_game"'), false);
-  const second = renderOrganizer(running(), { confirm: 'end_game' });
-  assert.match(second, /"type":"end_game"/);
-  assert.match(second, /data-confirm=""/);
+test('there is no separate end game button: Next Game is the one end action', () => {
+  const html = renderOrganizer(running());
+  assert.equal(html.includes('end_game'), false);
+  assert.match(html, /id="next-game"/);
 });
 
 test('end ideation early only shows during ideation', () => {
