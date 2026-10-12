@@ -67,8 +67,8 @@ export function companyVsCompany(series, maxSec = 960, names) {
     + line(series.A, THEME.A, false) + line(series.B, THEME.B, true)
     + `<circle cx="${n1(ax)}" cy="${n1(ay)}" r="5" fill="${THEME.A}"/>`
     + `<rect x="${n1(bx - 5)}" y="${n1(by - 5)}" width="10" height="10" fill="${THEME.B}"/>`
-    + txt(plot.x1, ay - 10, THEME.A, 16, 'end', `${nm.A} ${Math.round(series.A[last])}`, true)
-    + txt(plot.x1, by + 24, THEME.B, 16, 'end', `${nm.B} ${Math.round(series.B[last])}`, true);
+    + txt(plot.x1, ay - 10, THEME.text, 16, 'end', `${nm.A} ${Math.round(series.A[last])}`, true)
+    + txt(plot.x1, by + 24, THEME.text, 16, 'end', `${nm.B} ${Math.round(series.B[last])}`, true);
   return frame(268, 'Coins over time', body, 'Coins of each company over the competition');
 }
 
@@ -93,8 +93,8 @@ export function coinDifference(series, maxSec = 960, names) {
     + `<path d="${area}" fill="${THEME.B}" fill-opacity="0.85" clip-path="url(#dn)"/>`
     + `<line x1="${plot.x0}" x2="${plot.x1}" y1="${n1(mid)}" y2="${n1(mid)}" stroke="${THEME.text}" stroke-width="2"/>`
     + `<path d="${line}" fill="none" stroke="${THEME.text}" stroke-width="2"/>`
-    + txt(plot.x0 + 8, plot.y0 + 14, THEME.A, 14, '', `${nm.A} leads`, true)
-    + txt(plot.x0 + 8, plot.y1 - 6, THEME.B, 14, '', `${nm.B} leads`, true);
+    + txt(plot.x0 + 8, plot.y0 + 14, THEME.text, 14, '', `${nm.A} leads`, true)
+    + txt(plot.x0 + 8, plot.y1 - 6, THEME.text, 14, '', `${nm.B} leads`, true);
   return frame(268, 'Coin difference', body, 'Coin difference between the companies over the competition');
 }
 
@@ -108,7 +108,7 @@ export function roleBars(final, names) {
   const half = 230;
   const cx = W / 2;
   const rowH = 38;
-  let body = txt(cx - 30, 52, THEME.A, 14, 'end', nm.A, true) + txt(cx + 30, 52, THEME.B, 14, 'start', nm.B, true);
+  let body = txt(cx - 30, 52, THEME.text, 14, 'end', nm.A, true) + txt(cx + 30, 52, THEME.text, 14, 'start', nm.B, true);
   ROLE_ORDER.forEach((role, i) => {
     const y = 66 + i * rowH;
     const wa = (v('A', role) / top) * half;

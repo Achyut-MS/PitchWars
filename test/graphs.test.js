@@ -40,9 +40,9 @@ test('graphs name both companies and carry an accessible label', () => {
 
 test('the difference graph draws a zero line and fills in both team colours', () => {
   const svg = coinDifference(series());
-  assert.match(svg, /fill="#F5B83D"/);
-  assert.match(svg, /fill="#2BC4B8"/);
-  assert.match(svg, /stroke="#E9ECF2" stroke-width="2"/);
+  assert.match(svg, /fill="#FF6A1F"/);
+  assert.match(svg, /fill="#2E6BFF"/);
+  assert.match(svg, /stroke="#111111" stroke-width="2"/);
 });
 
 test('the two companies differ without colour: dashed line and a different marker', () => {

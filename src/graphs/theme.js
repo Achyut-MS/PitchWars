@@ -1,8 +1,6 @@
-// Colours for the saved images (dark theme). One palette: Plan 7 re-themes it here.
-// Company A is drawn solid with round markers, company B dashed with square markers,
-// so the two are told apart without colour.
+// Colours for the saved graph images. Same values as public/css/tokens.css (test/graph-theme.test.js checks it).
 export const THEME = {
-  stage: '#0A1424', panel: '#101E33', line: '#263C5C', text: '#E9ECF2', muted: '#9AAAC2',
-  A: '#F5B83D', B: '#2BC4B8',
-  font: "'Liberation Sans', 'Big Shoulders Display', Arial, sans-serif",
+  stage: '#FBF0D9', panel: '#FBF0D9', line: '#D9D4C8', text: '#111111', muted: '#555555',
+  A: '#FF6A1F', B: '#2E6BFF',
+  font: "'Space Mono', 'Courier New', monospace",
 };
