@@ -489,3 +489,22 @@ Other files: `docs/superpowers/plans/README.md` (the index and the rules every p
 
 1. **Balance (decided).** A careful company earns about 71 coins per minute, roughly 1,140 coins over the 16 minutes (about 1,250 with the extra 200 coins of debt). The first simulation showed the **CTO earning far less per coin than the CMO and COO** (6.5 coins per minute against 31 and 27), because the CTO's level was averaged over six slots. **Decided: the CTO's level counts its best 3 features** (Section 2.0). The CTO now earns about 13 coins per minute (20 with the debt), twice as much per coin. The CMO and COO remain the stronger earners; the CTO's value is that it chooses which three features matter, and its parts add up to 4 more coins per minute.
 2. **Colour-blind players and puzzle regions (decided).** Queens and Lits show their regions by colour **and by thin borders between regions**, so no player depends on colour alone (Section 2.0.1).
+
+## 13. Build Notes: where the finished product differs from this guide *(2026-10-12)*
+
+Found while building and testing. Each item says what the product does today.
+
+1. **Login** takes the Admission ID only (no name field). IDs are trimmed and upper-cased.
+2. **Only Next Game ends a game.** The "End game" button no longer exists. The order is: Competition ends, the organizer presses **Reveal**, then **Next Game**. Pressing Next Game without Reveal reveals and saves the graphs first. Players see "Thank you for playing" with no graph data until the reveal.
+3. **Downloads** (organizer only): a Downloads panel is always shown, with the whole-event Excel and, for every game, its Excel and (after its reveal) its three graph images.
+4. **No manual wallet override.** The only organizer money tools are the one coin injection (1 to 500 coins, one per game) and the one market event per game. There is no logged "fix a glitch" edit.
+5. **Seat changes** (swap, replace) happen in the Briefing only. A participant added later can only be seated as a replacement from the lobby during the Briefing.
+6. **Attack Shield** is a public shop item with that name, so the word "attack" appears in every player's shop. An attacked company never sees an attack message, only a market-style reason.
+7. **Ad Blackout** switches off the victim CMO's brand name (+2), tagline (+2) and ad campaign; the target-user part still counts.
+8. **A blocked attack still costs the attacker.**
+9. **After the shop closes** (30 s left), the CEO and CFO can still decide requests already in the queue until 0:00; only new requests are refused.
+10. **Skip to next phase** is a rehearsal control (not allowed to skip out of the Competition). **SHOWDOWN_SPEED** above 1 shows a "rehearsal" banner to the organizer. Do not use either at the real event.
+11. **Time:** the game is 29 minutes plus the 20-second summary card, not exactly 30. Changeover between games is extra. The Pi has no clock battery: set its date before the event. After a power cut the game resumes from the last 5-second heartbeat.
+12. **Balance numbers** (from `scripts/simulate-balance.js`): a careful company earns about 71 coins a minute (1,136 over 16 minutes); buying everything at the top tier costs about 2,020 coins for about 93 a minute (the 2,150 / 81 figures above are out of date).
+13. **Puzzles:** Lits is generated under a work limit, so it appears less often at the highest level; another puzzle kind is used when it cannot be built in time.
+14. **Spare router:** the guide says no router. The product needs only the Pi's own hotspot; a spare router is plan B at most.
