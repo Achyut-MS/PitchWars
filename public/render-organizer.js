@@ -45,6 +45,7 @@ function lobby(v, ui) {
     <td>${p.status === 'lobby' ? seatSelect(p) : `${esc(p.company ?? '')} ${esc(p.role ?? '')}`}</td></tr>`).join('');
   const problems = arr(v.problems).map((p) => `<option value="${esc(p.id)}">${esc(p.id)}. ${esc(p.title)}</option>`).join('');
   return `<section class="card"><h2>Roster</h2>
+  <p><a href="/join" target="_blank" rel="noopener" id="join-sign">Open the join sign</a></p>
   <textarea id="roster" rows="4" placeholder="admission_id,name (one per line)"></textarea>
   <input type="file" id="roster-file" accept=".csv,.txt,text/csv,text/plain" aria-label="Roster file">
   <button id="import"${dis(ui)}>Import roster</button>

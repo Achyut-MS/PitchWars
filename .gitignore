@@ -4,3 +4,4 @@ node_modules/
 *.db-*
 data/graphs/
 backups/
+sign.html
