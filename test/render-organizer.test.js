@@ -174,3 +174,46 @@ test('skip to next phase: a rehearsal control with a two-step confirm, hidden in
   assert.equal(renderOrganizer(running('competition')).includes('skip_phase'), false);
   assert.equal(renderOrganizer(lobby()).includes('skip_phase'), false);
 });
+
+const comp = (extra = {}) => { const v = running('competition'); v.game = { ...v.game, attacks: [], eventUsed: null, injectionUsed: null, ...extra }; return v; };
+
+test('competition controls: only in the competition', () => {
+  assert.match(renderOrganizer(comp()), /Competition controls/);
+  assert.equal(renderOrganizer(running('shop')).includes('Competition controls'), false);
+  assert.equal(renderOrganizer(lobby()).includes('Competition controls'), false);
+});
+
+test('market event picker offers the three server keys with a two-step confirm', () => {
+  const first = renderOrganizer(comp());
+  for (const k of ['demand_surge', 'demand_slump', 'shop_sale']) assert.match(first, new RegExp(`data-confirm="event:${k}"`));
+  assert.equal(first.includes('"type":"market_event"'), false);
+  const second = renderOrganizer(comp(), { confirm: 'event:shop_sale' });
+  assert.match(second, /"type":"market_event","key":"shop_sale"/);
+  assert.match(second, /data-confirm=""/);
+});
+
+test('a used market event disables the picker and says which', () => {
+  const html = renderOrganizer(comp({ eventUsed: 'demand_surge' }));
+  assert.match(html, /Used: Demand Surge/);
+  assert.equal(html.includes('data-confirm="event:'), false);
+});
+
+test('coin injection: form, validated draft, confirm sends exact message, used state', () => {
+  const first = renderOrganizer(comp());
+  assert.match(first, /id="inj-company"/);
+  assert.match(first, /id="inj-coins"/);
+  assert.match(first, /id="inj-ask"/);
+  const second = renderOrganizer(comp(), { confirm: 'inject', injectDraft: { company: 'B', coins: 250 } });
+  assert.match(second, /"type":"inject","company":"B","coins":250/);
+  assert.match(second, /250 coins to Company B/);
+  const used = renderOrganizer(comp({ injectionUsed: { company: 'A', coins: 300 } }));
+  assert.match(used, /Used: 300 coins to Company A/);
+  assert.equal(used.includes('id="inj-ask"'), false);
+});
+
+test('the live attack log lists attacks', () => {
+  const html = renderOrganizer(comp({ attacks: [{ id: 1, attacker: 'A', victim: 'B', name: 'Price Squeeze', cost: 300, at: 1, endsAt: 2, blocked: true, by: 'S0' }] }));
+  assert.match(html, /Attack log/);
+  assert.match(html, /Price Squeeze/);
+  assert.match(html, /blocked/i);
+});

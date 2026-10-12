@@ -70,6 +70,30 @@ const confirmButton = (label, action, ui) => (ui.confirm === action
   ? `<span class="confirm">Are you sure? ${send(`Yes, ${label}`, { type: action }, 'danger')}<button data-confirm="">Cancel</button></span>`
   : `<button data-confirm="${esc(action)}"${dis(ui)}>${esc(label)}</button>`);
 
+const EVENT_NAMES = { demand_surge: 'Demand Surge', demand_slump: 'Demand Slump', shop_sale: 'Shop Sale' };
+
+function competitionControls(g, ui) {
+  const eventPart = g.eventUsed
+    ? `<p>Market event. Used: ${esc(EVENT_NAMES[g.eventUsed] ?? g.eventUsed)}</p>`
+    : ui.confirm && ui.confirm.startsWith('event:') && Object.hasOwn(EVENT_NAMES, ui.confirm.slice(6))
+      ? `<p>Market event: <span class="confirm">Are you sure? ${send(`Yes, start ${EVENT_NAMES[ui.confirm.slice(6)]}`, { type: 'market_event', key: ui.confirm.slice(6) }, 'danger')}<button data-confirm="">Cancel</button></span></p>`
+      : `<p>Market event (one per game): ${Object.entries(EVENT_NAMES).map(([k, n]) => `<button data-confirm="event:${k}"${dis(ui)}>${esc(n)}</button>`).join(' ')}</p>`;
+  const inj = g.injectionUsed;
+  const d = ui.injectDraft;
+  const injPart = inj
+    ? `<p>Coin injection. Used: ${esc(inj.coins)} coins to Company ${esc(inj.company)}</p>`
+    : ui.confirm === 'inject' && d
+      ? `<p>Coin injection: <span class="confirm">Add ${esc(d.coins)} coins to Company ${esc(d.company)}? ${send('Yes, inject coins', { type: 'inject', company: d.company, coins: d.coins }, 'danger')}<button data-confirm="">Cancel</button></span></p>`
+      : `<p>Coin injection (one per game): <label for="inj-company">Company <select id="inj-company"><option value="A">A</option><option value="B">B</option></select></label>
+      <label for="inj-coins">Coins (1 to 500) <input id="inj-coins" type="number" min="1" max="500" step="1" value="${esc(d ? d.coins : '')}"></label>
+      <button id="inj-ask"${dis(ui)}>Inject coins</button></p>`;
+  const log = arr(g.attacks);
+  const logPart = `<h3>Attack log</h3>${log.length
+    ? `<ul>${log.map((a) => `<li>${esc(a.name)}: Company ${esc(a.attacker)} against ${esc(a.victim)}, cost ${esc(a.cost)}${a.blocked ? ', blocked by a shield' : ''}</li>`).join('')}</ul>`
+    : '<p class="muted">No attacks yet.</p>'}`;
+  return `<section class="card"><h2>Competition controls</h2>${eventPart}${injPart}${logPart}</section>`;
+}
+
 function seatTools(v, ui) {
   const players = arr(v.participants).filter((p) => p.status === 'in_game');
   const lobbyers = arr(v.participants).filter((p) => p.status === 'lobby');
@@ -99,6 +123,6 @@ export function renderOrganizer(v, ui = {}) {
     ? `<p class="muted">Rehearsal and testing only:</p>${confirmButton('skip to next phase', 'skip_phase', ui)}` : ''}
   ${confirmButton('end game', 'end_game', ui)}</section>`;
   return `<header class="bar"><span>Game ${esc(v.game.id)}</span><span class="phase">${esc(clock.phase)}</span><span id="clock">${fmtClock(clock.remainingSec)}</span></header>
-  <main>${banner}${err}${controls}${clock.phase === 'briefing' ? seatTools(v, ui) : ''}</main>
+  <main>${banner}${err}${controls}${clock.phase === 'briefing' ? seatTools(v, ui) : ''}${clock.phase === 'competition' ? competitionControls(v.game, ui) : ''}</main>
   <main class="two">${panel('A', companies.A, v.game.ideas)}${panel('B', companies.B, v.game.ideas)}</main>`;
 }
