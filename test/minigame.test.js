@@ -213,9 +213,11 @@ test('a generator that always fails falls back to another kind, never throws, ne
       assert.notEqual(row.kind, 'queens');
     }
     assert.ok(calls < 30 * 8);
-    for (const k of Object.keys(PUZZLES)) PUZZLES[k].generate = () => { throw new Error('boom'); };
-    h.db.prepare('DELETE FROM puzzle_sessions').run();
-    assert.equal(start(h, 1), undefined);
+    for (const k of Object.keys(PUZZLES)) if (k !== 'tower') PUZZLES[k].generate = () => { throw new Error('boom'); };
+    for (let seed = 1; seed < 20; seed++) {
+      h.db.prepare('DELETE FROM puzzle_sessions').run();
+      assert.equal(start(h, seed).kind, 'tower');
+    }
   } finally { for (const k of Object.keys(origs)) PUZZLES[k].generate = origs[k]; }
 });
 
@@ -231,4 +233,75 @@ test('the server clock is used, never Date.now', () => {
   const h = toCompetition(makeRunning());
   start(h);
   assert.equal(openPuzzle(h.db, h.gameId, 'A').shown_at, 800000);
+});
+
+test('a failed generation is not sticky: the default seed differs per attempt and a puzzle always comes out', async () => {
+  const h = toCompetition(makeRunning());
+  const { PUZZLES } = await import('../src/puzzles/index.js');
+  const origs = Object.fromEntries(Object.entries(PUZZLES).map(([k, v]) => [k, v.generate]));
+  const seeds = new Set();
+  try {
+    for (const k of Object.keys(PUZZLES)) PUZZLES[k].generate = (l, r) => {
+      seeds.add(r());
+      if (seeds.size < 4) throw new Error('boom');
+      return origs.sets(l, r);
+    };
+    const row = startPuzzle(h.ctx, h.game(), h.seat.A.CFO);
+    assert.ok(row);
+    assert.equal(seeds.size, 4);
+  } finally { for (const k of Object.keys(origs)) PUZZLES[k].generate = origs[k]; }
+});
+
+test('the fallback kinds never throw and always check out, at every level', async () => {
+  const { PUZZLES } = await import('../src/puzzles/index.js');
+  const { FALLBACK_KINDS } = await import('../src/minigame.js');
+  for (const k of FALLBACK_KINDS) for (const level of [1, 2, 3, 4]) {
+    for (let seed = 1; seed <= 2000; seed++) {
+      const g = PUZZLES[k].generate(level, mulberry32(seed));
+      assert.equal(PUZZLES[k].check(g.puzzle, g.solution), true);
+    }
+  }
+});
+
+test('Lits at level 4 stays inside its node budget over 100 seeds and either generates or fails', async () => {
+  const { PUZZLES } = await import('../src/puzzles/index.js');
+  let made = 0;
+  let slowest = 0;
+  for (let seed = 1; seed <= 100; seed++) {
+    const t = performance.now();
+    try { PUZZLES.lits.generate(4, mulberry32(seed)); made++; } catch (e) { assert.match(e.message, /LITS/); }
+    slowest = Math.max(slowest, performance.now() - t);
+  }
+  assert.ok(made > 40, `only ${made} made`);
+  assert.ok(slowest < 400, `slowest ${slowest} ms`);
+});
+
+test('a closed puzzle answered again throws the distinguishable NoPuzzleOpenError', async () => {
+  const { NoPuzzleOpenError } = await import('../src/minigame.js');
+  const h = toCompetition(makeRunning());
+  start(h);
+  const sol = stored(h);
+  submitPuzzle(h.ctx, h.game(), h.seat.A.CFO, sol);
+  assert.throws(() => submitPuzzle(h.ctx, h.game(), h.seat.A.CFO, sol), NoPuzzleOpenError);
+});
+
+test('after a restart the same DB file re-serves the same open row', async () => {
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { openDb } = await import('../src/db.js');
+  const { activeGame } = await import('../src/persist.js');
+  const dir = mkdtempSync(join(tmpdir(), 'mg-'));
+  const file = join(dir, 'g.db');
+  const a = makeRunning({ file });
+  toCompetition(a);
+  const first = startPuzzle(a.ctx, a.game(), a.seat.A.CFO);
+  a.db.close();
+  const db2 = openDb(file);
+  const ctx2 = { ...a.ctx, db: db2 };
+  const again = startPuzzle(ctx2, activeGame(db2), a.seat.A.CFO);
+  assert.equal(again.id, first.id);
+  assert.equal(again.puzzle, first.puzzle);
+  assert.equal(again.solution, first.solution);
+  assert.equal(db2.prepare('SELECT COUNT(*) n FROM puzzle_sessions').get().n, 1);
 });

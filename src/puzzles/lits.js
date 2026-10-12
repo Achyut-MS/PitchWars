@@ -66,6 +66,7 @@ function touchesSameShape(shapeByCell, regions, r, c, letter, region) {
   return false;
 }
 
+// budget is shared: solve decrements budget.left (node count, deterministic).
 function solve(rows, regions, count, budget) {
   const placements = Array.from({ length: count }, () => []);
   for (const o of ORIENTATIONS) {
@@ -81,10 +82,9 @@ function solve(rows, regions, count, budget) {
   const shaded = new Set();
   const shapeByCell = new Map();
   const chosen = [];
-  let nodes = 0;
   function go(i) {
     if (i === order.length) return connected(chosen.flatMap((p) => p.cells));
-    if (++nodes > budget) return false;
+    if (--budget.left < 0) return false;
     const id = order[i];
     for (const p of placements[id]) {
       if (p.cells.some(([r, c]) => touchesSameShape(shapeByCell, regions, r, c, p.letter, id))) continue;
@@ -92,23 +92,28 @@ function solve(rows, regions, count, budget) {
       const blocked = p.cells.some(([r, c]) => hasBlock(shaded, r, c));
       if (!blocked) { chosen.push(p); if (go(i + 1)) return true; chosen.pop(); }
       p.cells.forEach(([r, c]) => { shaded.delete(key(r, c)); shapeByCell.delete(key(r, c)); });
-      if (nodes > budget) return false;
+      if (budget.left < 0) return false;
     }
     return false;
   }
   return go(0) ? chosen.flatMap((p) => p.cells) : null;
 }
 
+// Total search nodes one generate() call may spend, so it never blocks the server for long.
+export const NODE_CAP = 3000;
+
 export function generate(level, rng) {
   const n = SIZES[level - 1];
   const count = Math.max(4, Math.floor((n * n) / 6.5));
-  for (let attempt = 0; attempt < 400; attempt++) {
+  const budget = { left: NODE_CAP };
+  for (let attempt = 0; attempt < 400 && budget.left > 0; attempt++) {
+    budget.left -= 40; // cost of building a region layout
     const cells = shuffle(rng, [...Array(n * n).keys()]).slice(0, count).map((i) => [Math.floor(i / n), i % n]);
     const regions = growRegions(rng, n, n, cells);
     const sizes = Array(count).fill(0);
     regions.flat().forEach((id) => sizes[id]++);
     if (sizes.some((s) => s < 4)) continue;
-    const solution = solve(n, regions, count, 4000);
+    const solution = solve(n, regions, count, budget);
     if (solution) return { puzzle: { n, regions, count }, solution };
   }
   throw new Error('could not build a LITS puzzle');

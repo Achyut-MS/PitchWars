@@ -36,17 +36,35 @@ function cfo(ctx, game, admissionId) {
   return p;
 }
 
-// Returns undefined only if every generator failed (practically never); never throws.
-function generateOne(level, rng, kinds) {
+// Kinds verified never to throw (2000 seeds x 4 levels) and to take about 1 ms.
+export const FALLBACK_KINDS = ['sets', 'tower', 'mosaic'];
+
+export class NoPuzzleOpenError extends Error {
+  constructor() { super('no puzzle is open'); this.name = 'NoPuzzleOpenError'; }
+}
+
+const attemptSeed = (base, attempt) => (Math.imul(base >>> 0, 2654435761) + attempt * 40503 + 1) >>> 0;
+
+// Never throws and always returns a puzzle: every attempt has its own seed, Lits (which can be slow)
+// is tried at most once, and if all attempts fail a cheap always-working kind is used.
+function generateOne(level, base, kinds) {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    // Two tries at the first kind with fresh randomness, then other kinds.
-    const kind = kinds[attempt < 2 ? 0 : (attempt - 1) % kinds.length];
+    let kind = kinds[attempt < 2 ? 0 : (attempt - 1) % kinds.length];
+    if (attempt === 1 && kind === 'lits') kind = kinds[1 % kinds.length];
     try {
-      const made = PUZZLES[kind].generate(level, rng);
+      const made = PUZZLES[kind].generate(level, mulberry32(attemptSeed(base, attempt)));
       if (made && made.puzzle !== undefined && made.solution !== undefined) return { kind, made };
-    } catch { /* try again */ }
+    } catch { /* try the next attempt */ }
   }
-  return undefined;
+  for (let i = 0; i < FALLBACK_KINDS.length * 3; i++) {
+    const kind = FALLBACK_KINDS[i % FALLBACK_KINDS.length];
+    try {
+      const made = PUZZLES[kind].generate(level, mulberry32(attemptSeed(base, MAX_ATTEMPTS + i)));
+      if (made) return { kind, made };
+    } catch { /* next */ }
+  }
+  // Unreachable in practice; level 1 sets as a last resort keeps the contract.
+  return { kind: 'sets', made: PUZZLES.sets.generate(1, mulberry32(1)) };
 }
 
 export function startPuzzle(ctx, game, admissionId, rng) {
@@ -56,15 +74,18 @@ export function startPuzzle(ctx, game, admissionId, rng) {
     if (open) return open;
     const total = ctx.db.prepare('SELECT COUNT(*) AS n FROM puzzle_sessions WHERE game_id=? AND company=?').get(game.id, p.company).n;
     // Seeded per game, company and session number so a restart re-serves the same puzzle.
-    const r = rng ?? mulberry32((game.id * 7919 + (p.company === 'A' ? 1 : 2) * 104729 + total * 15485863) >>> 0);
+    const base = rng ? Math.floor(rng() * 4294967296) : (game.id * 7919 + (p.company === 'A' ? 1 : 2) * 104729 + total * 15485863) >>> 0;
+    const pick = rng ?? mulberry32(base);
     const level = levelFor(count(ctx.db, game.id, p.company, 'solved'));
     const last = ctx.db.prepare('SELECT kind FROM puzzle_sessions WHERE game_id=? AND company=? ORDER BY id DESC LIMIT 1').get(game.id, p.company);
     const others = KINDS.filter((k) => !last || k !== last.kind);
-    const first = Math.floor(r() * others.length);
+    const first = Math.floor(pick() * others.length);
     const order = [...others.slice(first), ...others.slice(0, first)];
     if (last) order.push(last.kind);
-    const got = generateOne(level, r, order);
-    if (!got) return undefined;
+    // Lits is slow and can fail: never try it before the other kinds in the retry order.
+    const lits = order.indexOf('lits');
+    if (lits > 0) { order.splice(lits, 1); order.push('lits'); }
+    const got = generateOne(level, base, order);
     const now = ctx.now();
     const info = ctx.db.prepare(
       'INSERT INTO puzzle_sessions (game_id, company, admission_id, kind, level, puzzle, solution, shown_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
@@ -86,7 +107,7 @@ export function submitPuzzle(ctx, game, admissionId, answer) {
   return ctx.db.transaction(() => {
     const now = ctx.now();
     const row = openPuzzle(ctx.db, game.id, p.company);
-    if (!row) throw new Error('no puzzle is open');
+    if (!row) throw new NoPuzzleOpenError();
     let ok = false;
     if (sane(answer)) {
       try { ok = PUZZLES[row.kind].check(JSON.parse(row.puzzle), JSON.parse(JSON.stringify(answer))) === true; } catch { ok = false; }
@@ -112,7 +133,7 @@ export function skipPuzzle(ctx, game, admissionId) {
   return ctx.db.transaction(() => {
     const now = ctx.now();
     const row = openPuzzle(ctx.db, game.id, p.company);
-    if (!row) throw new Error('no puzzle is open');
+    if (!row) throw new NoPuzzleOpenError();
     const penalty = count(ctx.db, game.id, p.company, 'skipped') >= FREE_SKIPS ? SKIP_PENALTY : 0;
     ctx.db.prepare("UPDATE puzzle_sessions SET ended_at=?, result='skipped', penalty=? WHERE id=?").run(now, penalty, row.id);
     if (penalty) ctx.db.prepare('UPDATE company_state SET wallet = wallet - ? WHERE game_id=? AND company=?').run(penalty, game.id, p.company);

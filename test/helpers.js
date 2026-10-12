@@ -7,8 +7,8 @@ import { loadData } from '../src/data.js';
 
 export const data = loadData('data');
 
-export function makeRunning({ problemId = 1, startAt = 0 } = {}) {
-  const db = openDb();
+export function makeRunning({ problemId = 1, startAt = 0, file = ':memory:' } = {}) {
+  const db = openDb(file);
   for (let i = 0; i < 12; i++) addParticipant(db, `S${i}`, `Player ${i}`);
   const seat = { A: {}, B: {} };
   let i = 0;
