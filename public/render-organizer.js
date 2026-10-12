@@ -175,6 +175,12 @@ function shell(inner) {
   <div class="desk">${inner}</div></div>`;
 }
 
+function dupLine(v) {
+  const names = new Map(arr(v.participants).map((p) => [p.admission_id, p.name]));
+  return arr(v.warnings).filter((w) => w && w.type === 'duplicate_login')
+    .map((w) => `<p class="muted dup-login">Logged in again: ${esc(names.get(w.admissionId) ?? w.admissionId)} (${esc(w.count)}x)</p>`).join('');
+}
+
 function renderOrganizerInner(v, ui = {}) {
   if (!v || typeof v !== 'object') return '<main><p class="error">No data.</p></main>';
   ui = ui || {};
@@ -182,7 +188,7 @@ function renderOrganizerInner(v, ui = {}) {
   const err = off + (ui.error ? `<p class="error" role="alert" id="org-error">${esc(ui.error)}</p>` : '');
   const rehearsal = Number(v.rehearsalSpeed) > 1
     ? `<p class="warn" id="rehearsal-banner" role="alert">REHEARSAL SPEED x${esc(v.rehearsalSpeed)} — NOT FOR THE EVENT</p>` : '';
-  if (!v.game) return `<main>${rehearsal}${err}${backupLine(v.backup)}${lobby(v, ui)}${downloadsPanel(v.downloads)}</main>`;
+  if (!v.game) return `<main>${rehearsal}${err}${dupLine(v)}${backupLine(v.backup)}${lobby(v, ui)}${downloadsPanel(v.downloads)}</main>`;
   const clock = v.game.clock ?? { phase: '?', remainingSec: 0 };
   const companies = v.game.companies ?? {};
   const stuck = arr(v.game.stuck);
@@ -194,7 +200,7 @@ function renderOrganizerInner(v, ui = {}) {
     ? `<p class="muted">Rehearsal and testing only:</p>${confirmButton('skip to next phase', 'skip_phase', ui)}` : ''}
   ${['ideation', 'briefing', 'shop', 'summary'].includes(clock.phase) ? '' : '<p class="muted">The clock runs this phase on its own.</p>'}</section>`;
   return `<header class="bar"><span>Game ${esc(v.game.id)}</span><span class="phase">${esc(clock.phase)}</span><span class="timer"><span class="pill"><span id="clock">${fmtClock(clock.remainingSec)}</span></span></span></header>
-  <main>${rehearsal}${banner}${err}${backupLine(v.backup)}${controls}${clock.phase === 'briefing' ? seatTools(v, ui) : ''}${clock.phase === 'competition' ? competitionControls(v.game, ui) : ''}${resultsControls(v.game, ui)}${downloadsPanel(v.downloads)}</main>
+  <main>${rehearsal}${banner}${err}${dupLine(v)}${backupLine(v.backup)}${controls}${clock.phase === 'briefing' ? seatTools(v, ui) : ''}${clock.phase === 'competition' ? competitionControls(v.game, ui) : ''}${resultsControls(v.game, ui)}${downloadsPanel(v.downloads)}</main>
   <main class="two" id="sec-companies">${panel('A', companies.A, v.game.ideas)}${panel('B', companies.B, v.game.ideas)}</main>`;
 }
 

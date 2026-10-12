@@ -223,7 +223,8 @@ export function organizerView(ctx, cache = null) {
   const backup = ctx.backupStatus ? ctx.backupStatus() : null;
   const rehearsalSpeed = ctx.speed > 1 ? ctx.speed : null; // organizer only, never in a player view
   const downloads = downloadsList(ctx.db);
-  if (!game) return { screen: 'organizer', participants, problems, game: null, backup, rehearsalSpeed, downloads };
+  const warnings = ctx.duplicateWarnings ? ctx.duplicateWarnings(game ? game.id : null) : [];
+  if (!game) return { screen: 'organizer', participants, problems, game: null, backup, rehearsalSpeed, downloads, warnings };
   const panel = (company) => {
     const cs = companyState(ctx.db, game.id, company);
     const idea = ideaOf(ctx, game, company);
@@ -238,7 +239,7 @@ export function organizerView(ctx, cache = null) {
     };
   };
   return {
-    screen: 'organizer', participants, problems, backup, rehearsalSpeed, downloads,
+    screen: 'organizer', participants, problems, backup, rehearsalSpeed, downloads, warnings,
     game: { id: game.id, problemId: game.problemId, stuck: stuckPhases(ctx.db, game.id), clock: phaseAt(game, ctx.now()), ended: phaseAt(game, ctx.now()).phase === 'ended', revealed: revealed(ctx, game), companies: { A: panel('A'), B: panel('B') },
       puzzles: Object.fromEntries(['A', 'B'].map((c) => [c, {
         solved: puzzleCount(ctx.db, game.id, c, 'solved'),

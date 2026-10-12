@@ -75,7 +75,9 @@ function onMessage(m) {
   } else if (m.type === 'error') {
     const e = typeof m.error === 'string' ? m.error : '';
     guard.release();
-    if (e === 'bad_password' || e === 'too_many_attempts') {
+    if (e === 'too_many_attempts') {
+      showLogin(humanError(e)); // keep the saved password: it may well be right
+    } else if (e === 'bad_password') {
       password = null;
       try { sessionStorage.removeItem('orgPassword'); } catch { /* ignore */ }
       showLogin(humanError(e));

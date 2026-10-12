@@ -39,18 +39,20 @@ test('a login flood is dropped, other players stay fast and only one login is lo
   const { db, app, url } = await boot();
   const flooder = await connect(url);
   const other = await connect(url);
-  assert.equal((await ask(other, { type: 'login', admissionId: 'S1' })).type, 'welcome');
-  const flooderClosed = closed(flooder);
-  const msg = JSON.stringify({ type: 'login', admissionId: 'S0' });
-  for (let i = 0; i < 20_000; i++) flooder.send(msg);
-  const t0 = performance.now();
-  assert.equal((await ask(other, { type: 'sync' })).type, 'state');
-  const ms = performance.now() - t0;
-  assert.ok(ms < 100, `sync took ${ms.toFixed(0)} ms during the flood`);
-  await flooderClosed;
-  const n = db.prepare("SELECT COUNT(*) n FROM events WHERE type='login' AND admission_id='S0'").get().n;
-  assert.equal(n, 1, 'repeat logins of the same id on the same socket are not logged');
-  await done(app, other, flooder);
+  try {
+    assert.equal((await ask(other, { type: 'login', admissionId: 'S1' })).type, 'welcome');
+    const flooderClosed = closed(flooder);
+    const msg = JSON.stringify({ type: 'login', admissionId: 'S0' });
+    for (let i = 0; i < 20_000; i++) flooder.send(msg);
+    const t0 = performance.now();
+    assert.equal((await ask(other, { type: 'sync' })).type, 'state');
+    const ms = performance.now() - t0;
+    // Unflooded this is ~6 ms and the unfixed server took 4.5 s; the bound leaves room for a loaded CI box.
+    assert.ok(ms < 250, `sync took ${ms.toFixed(0)} ms during the flood`);
+    await flooderClosed;
+    const n = db.prepare("SELECT COUNT(*) n FROM events WHERE type='login' AND admission_id='S0'").get().n;
+    assert.equal(n, 1, 'repeat logins of the same id on the same socket are not logged');
+  } finally { await done(app, other, flooder); }
 });
 
 test('normal use stays under the limit: a steady stream of syncs is never dropped', async () => {
@@ -60,4 +62,121 @@ test('normal use stays under the limit: a steady stream of syncs is never droppe
   for (let i = 0; i < 40; i++) assert.equal((await ask(ws, { type: 'sync' })).type, 'state');
   assert.equal(ws.readyState, 1);
   await done(app, ws);
+});
+
+// ---- 2. per-IP organizer throttle ----
+const org = (ws, password = 'wrong') => ask(ws, { type: 'organizer', password });
+
+test('20 sockets spamming wrong passwords from one IP do not block a login from another IP', async () => {
+  const { app, url } = await boot();
+  const socks = [];
+  for (let i = 0; i < 20; i++) { const w = await connect(url, '10.0.0.9'); socks.push(w); await org(w); }
+  const good = await connect(url, '10.0.0.5');
+  socks.push(good);
+  assert.equal((await org(good, 'pw-long-enough')).type, 'welcome');
+  await done(app, ...socks);
+});
+
+test('the throttle still stops a single-IP guesser, then relaxes', async () => {
+  const { app, url, setT, getT } = await boot();
+  const socks = [];
+  for (let i = 0; i < 10; i++) { const w = await connect(url, '10.0.0.9'); socks.push(w); assert.equal((await org(w)).error, 'bad_password'); }
+  const w = await connect(url, '10.0.0.9'); socks.push(w);
+  setT(getT() + 1000);
+  assert.equal((await org(w)).error, 'bad_password'); // one allowed per second
+  assert.equal((await org(w, 'pw-long-enough')).error, 'too_many_attempts');
+  setT(getT() + 1200);
+  assert.equal((await org(w, 'pw-long-enough')).type, 'welcome');
+  await done(app, ...socks);
+});
+
+test('the IPv4-mapped IPv6 form counts as the same address', async () => {
+  const { app, url, setT, getT } = await boot();
+  const socks = [];
+  for (let i = 0; i < 10; i++) { const w = await connect(url, i % 2 ? '::ffff:10.0.0.9' : '10.0.0.9'); socks.push(w); await org(w); }
+  const w = await connect(url, '10.0.0.9'); socks.push(w);
+  assert.equal((await org(w, 'pw-long-enough')).error, 'too_many_attempts');
+  await done(app, ...socks);
+});
+
+test('loopback is never locked out by other connections', async () => {
+  const { app, url } = await boot({ ipOf: undefined });
+  const socks = [];
+  for (let i = 0; i < 30; i++) { const w = await connect(url); socks.push(w); await org(w); }
+  const w = await connect(url); socks.push(w);
+  assert.equal((await org(w, 'pw-long-enough')).type, 'welcome');
+  await done(app, ...socks);
+});
+
+test('the console keeps its saved password on too_many_attempts', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync('public/organizer.js', 'utf8');
+  const m = src.match(/if \(e === 'too_many_attempts'\) \{([^}]*)\}/);
+  assert.ok(m, 'there is a too_many_attempts branch');
+  assert.ok(!/removeItem|password = null/.test(m[1]));
+});
+
+// ---- 3. login throttle, duplicate sessions ----
+test('failed logins from one IP are refused for a minute after 10 misses; other IPs are fine', async () => {
+  const { app, url, setT, getT } = await boot();
+  const socks = [];
+  const w = await connect(url, '10.1.1.1'); socks.push(w);
+  for (let i = 0; i < 10; i++) assert.equal((await ask(w, { type: 'login', admissionId: `NOPE${i}` })).error, 'unknown_id');
+  assert.equal((await ask(w, { type: 'login', admissionId: 'S1' })).error, 'too_many_attempts');
+  const other = await connect(url, '10.1.1.2'); socks.push(other);
+  assert.equal((await ask(other, { type: 'login', admissionId: 'S1' })).type, 'welcome');
+  setT(getT() + 61_000);
+  assert.equal((await ask(w, { type: 'login', admissionId: 'S2' })).type, 'welcome');
+  await done(app, ...socks);
+});
+
+async function orgOf(url) {
+  const o = await connect(url);
+  assert.equal((await org(o, 'pw-long-enough')).type, 'welcome');
+  return o;
+}
+
+test('a second login replaces the first: the old socket is told and closed, the organizer sees a counter', async () => {
+  const { db, app, url } = await boot();
+  const o = await orgOf(url);
+  const first = await connect(url);
+  await ask(first, { type: 'login', admissionId: 'S1' });
+  const told = next(first);
+  const gone = closed(first);
+  const second = await connect(url);
+  assert.equal((await ask(second, { type: 'login', admissionId: 's1' })).type, 'welcome');
+  assert.deepEqual(await told, { type: 'error', error: 'logged_in_elsewhere' });
+  await gone;
+  assert.equal(second.readyState, 1);
+  // again
+  const third = await connect(url);
+  await ask(third, { type: 'login', admissionId: 'S1' });
+  await closed(second);
+  assert.equal(db.prepare("SELECT COUNT(*) n FROM events WHERE type='login_replaced' AND admission_id='S1'").get().n, 2);
+  app.flush();
+  const view = (await ask(o, { type: 'sync' })).view;
+  assert.deepEqual(view.warnings, [{ type: 'duplicate_login', admissionId: 'S1', count: 2 }]);
+  // players never see any of it
+  const mine = (await ask(third, { type: 'sync' }));
+  assert.ok(!/duplicate|warnings|logged_in_elsewhere/.test(JSON.stringify(mine)));
+  await done(app, o, first, second, third);
+});
+
+test('a repeat login on the same socket is not a replacement', async () => {
+  const { app, url } = await boot();
+  const o = await orgOf(url);
+  const w = await connect(url);
+  await ask(w, { type: 'login', admissionId: 'S1' });
+  await ask(w, { type: 'login', admissionId: 'S1' });
+  assert.deepEqual((await ask(o, { type: 'sync' })).view.warnings, []);
+  await done(app, o, w);
+});
+
+test('the organizer console shows who logged in again', async () => {
+  const { renderOrganizer } = await import('../public/render-organizer.js');
+  const base = { screen: 'organizer', participants: [{ admission_id: 'S1', name: 'Pia', status: 'lobby' }], problems: [], game: null,
+    warnings: [{ type: 'duplicate_login', admissionId: 'S1', count: 3 }] };
+  assert.match(renderOrganizer(base), /Logged in again: Pia \(3x\)/);
+  assert.doesNotMatch(renderOrganizer({ ...base, warnings: [] }), /Logged in again/);
+  assert.match(renderOrganizer({ ...base, participants: [{ admission_id: 'S1', name: '<b>x</b>', status: 'lobby' }] }), /&lt;b&gt;x&lt;\/b&gt; \(3x\)/);
 });

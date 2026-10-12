@@ -35,6 +35,7 @@ const GLOBAL_GAP_MS = 1000;
 const SMALL_MSG = 4096;
 const BIG_MSG = 262144;
 const COALESCE_MS = 200;
+const LOGIN_FAILS = 10;
 const RATE_PER_SEC = 30;
 const RATE_BURST = 60;
 
@@ -61,6 +62,8 @@ export function createApp({
   backupDir = 'backups', backup = backupDb, backupKeep = 50, backupTimeoutMs = 60_000, speed = 1,
   join = () => joinConfigFromEnv(process.env),
   mono = () => performance.now(),
+  ipOf = (req) => req.socket.remoteAddress,
+  allowDuplicateSessions = false, // load tests only: many sockets as the same player
 }) {
   const ctx = { db, data, now, exportDir, backupDir, speed };
   const handler = staticRoot
@@ -98,7 +101,20 @@ export function createApp({
   const alive = new WeakMap();
   const buckets = new WeakMap(); // ws -> { tokens, at }
   const dropped = new WeakSet();
-  const global = { fails: [], lastAllowed: -Infinity };
+  const replaced = new Map(); // `${gameId}:${admissionId}` -> times a newer login replaced an older socket
+  ctx.duplicateWarnings = (gameId) => [...replaced].filter(([k]) => k.startsWith(`${gameId ?? 0}:`))
+    .map(([k, count]) => ({ type: 'duplicate_login', admissionId: k.slice(k.indexOf(':') + 1), count }));
+  const ipOfWs = new WeakMap();
+  const ipLimits = new Map(); // ip -> { fails: [ts], lastAllowed }
+  const loginLimits = new Map(); // ip -> { fails: [ts], lockedUntil }
+  const normIp = (a) => String(a ?? '').replace(/^::ffff:/i, '');
+  const isLoopback = (ip) => ip === '127.0.0.1' || ip === '::1';
+  const sweep = (map, t) => {
+    for (const [k, v] of map) {
+      v.fails = v.fails.filter((x) => t - x < WINDOW_MS);
+      if (!v.fails.length && !(v.lockedUntil > t)) map.delete(k);
+    }
+  };
   const lastPhase = new Map(); // gameId -> phase last seen by the tick
   let dirty = false;
   let timer = null;
@@ -282,7 +298,8 @@ export function createApp({
     } catch (e) { console.error('disconnect log failed:', e && e.message); }
   }
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
+    try { ipOfWs.set(ws, normIp(ipOf(req))); } catch { ipOfWs.set(ws, ''); }
     alive.set(ws, true);
     ws.on('pong', () => alive.set(ws, true));
     ws.on('close', () => endSession(ws));
@@ -318,13 +335,19 @@ export function createApp({
     const a = attempts.get(ws) || { fails: [], lockedUntil: 0 };
     attempts.set(ws, a);
     if (t < a.lockedUntil) return 'too_many_attempts';
-    // Global limiter: after 10 failures in a minute (any connection) allow one attempt a second.
-    global.fails = global.fails.filter((x) => t - x < WINDOW_MS);
-    if (global.fails.length >= GLOBAL_FAILS && t - global.lastAllowed < GLOBAL_GAP_MS) return 'too_many_attempts';
-    global.lastAllowed = t;
+    // Per-IP limiter: after 10 failures in a minute from one address, one attempt a second
+    // from that address. Loopback (the organizer's own laptop) is never refused here.
+    const ip = ipOfWs.get(ws) ?? '';
+    let rec = ipLimits.get(ip);
+    if (!rec) { rec = { fails: [], lastAllowed: -Infinity }; ipLimits.set(ip, rec); }
+    rec.fails = rec.fails.filter((x) => t - x < WINDOW_MS);
+    if (!isLoopback(ip)) {
+      if (rec.fails.length >= GLOBAL_FAILS && t - rec.lastAllowed < GLOBAL_GAP_MS) return 'too_many_attempts';
+      rec.lastAllowed = t;
+    }
     a.fails = a.fails.filter((x) => t - x < WINDOW_MS);
     if (organizerLogin(password, organizerPassword)) return 'ok';
-    global.fails.push(t);
+    rec.fails.push(t);
     a.fails.push(t);
     if (a.fails.length >= MAX_FAILS) { a.lockedUntil = t + LOCK_MS; a.fails = []; }
     return 'bad_password';
@@ -341,10 +364,32 @@ export function createApp({
 
     if (msg.type === 'login') {
       if (typeof msg.admissionId !== 'string') return send(ws, { type: 'error', error: 'bad_message' });
+      const t = now();
+      const ip = ipOfWs.get(ws) ?? '';
+      const lim = loginLimits.get(ip) || { fails: [], lockedUntil: 0 };
+      loginLimits.set(ip, lim);
+      if (!isLoopback(ip) && t < lim.lockedUntil) return send(ws, { type: 'error', error: 'too_many_attempts' });
       const prior = sessions.get(ws);
-      const same = !!prior && prior.kind === 'participant' && prior.admissionId === normId(msg.admissionId);
-      const r = participantLogin(db, msg.admissionId, now(), !same);
-      if (!r.ok) return send(ws, { type: 'error', error: r.error });
+      const id = normId(msg.admissionId);
+      const same = !!prior && prior.kind === 'participant' && prior.admissionId === id;
+      const r = participantLogin(db, msg.admissionId, t, !same);
+      if (!r.ok) {
+        lim.fails = lim.fails.filter((x) => t - x < WINDOW_MS);
+        if (!isLoopback(ip)) lim.fails.push(t); // loopback is the organizer's own machine and the test rigs
+        if (lim.fails.length >= LOGIN_FAILS) { lim.lockedUntil = t + LOCK_MS; lim.fails = []; }
+        return send(ws, { type: 'error', error: r.error });
+      }
+      // The newest login wins: an older live socket for the same id is told and closed.
+      for (const [other, os] of sessions) {
+        if (allowDuplicateSessions || other === ws || os.kind !== 'participant' || os.admissionId !== r.participant.admissionId) continue;
+        sessions.delete(other);
+        send(other, { type: 'error', error: 'logged_in_elsewhere' });
+        try { other.close(); } catch { other.terminate(); }
+        const key = `${r.participant.gameId ?? 0}:${r.participant.admissionId}`;
+        replaced.set(key, (replaced.get(key) || 0) + 1);
+        logEvent(db, { ts: t, gameId: r.participant.gameId ?? null, admissionId: r.participant.admissionId, type: 'login_replaced', payload: { count: replaced.get(key) } });
+        markDirty();
+      }
       sessions.set(ws, { kind: 'participant', admissionId: r.participant.admissionId });
       return send(ws, { type: 'welcome', view: r.view, participant: r.participant });
     }
@@ -423,6 +468,9 @@ export function createApp({
 
   // Two-strike ping: a socket that did not answer the previous ping is terminated.
   function pingAll() {
+    const nowT = now();
+    sweep(ipLimits, nowT);
+    sweep(loginLimits, nowT);
     for (const ws of wss.clients) {
       if (alive.get(ws) === false) { endSession(ws); ws.terminate(); continue; }
       alive.set(ws, false);

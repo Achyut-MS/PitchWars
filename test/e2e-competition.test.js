@@ -29,7 +29,7 @@ function client(url) {
 async function setup(extra = 0) {
   const db = openDb();
   let t = 0;
-  const app = createApp({ db, organizerPassword: 'pw', now: () => t, data, staticRoot: null });
+  const app = createApp({ db, organizerPassword: 'pw', now: () => t, data, staticRoot: null, allowDuplicateSessions: true });
   await new Promise((r) => app.server.listen(0, r));
   const url = `ws://127.0.0.1:${app.server.address().port}`;
   const env = { db, app, url, setT: (v) => (t = v), socks: [] };

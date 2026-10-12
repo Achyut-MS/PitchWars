@@ -333,12 +333,12 @@ test('pingAll terminates sockets that never answered and keeps live ones', async
 
 // ---- review fixes: coalesced push, phase push, payload size, global throttle ----
 
-async function bootManual() {
+async function bootManual(extraOpts = {}) {
   const db = openDb();
   let t = 0;
   const timers = [];
   const app = createApp({
-    db, organizerPassword: 'pw', now: () => t, data, staticRoot: null,
+    db, organizerPassword: 'pw', now: () => t, data, staticRoot: null, ...extraOpts,
     setTimer: (fn, ms) => { const h = { fn, ms, live: true }; timers.push(h); return h; },
     clearTimer: (h) => { if (h) h.live = false; },
   });
@@ -370,7 +370,7 @@ test('the actor gets state at once; everyone else gets ONE coalesced push after 
 });
 
 test('pushing to 80 sessions stays fast', async () => {
-  const { app, url, setT } = await bootManual();
+  const { app, url, setT } = await bootManual({ allowDuplicateSessions: true });
   const o = await organizer(url);
   await runningGame(o, setT);
   const socks = [];
@@ -418,20 +418,6 @@ test('an organizer may paste a 200-row roster; a participant sending 5000 bytes 
   assert.equal(o.readyState, 1);
   assert.equal((await send(o, { type: 'sync' })).type, 'state');
   await done(app, o, p);
-});
-
-test('a global limiter slows password guessing across reconnects', async () => {
-  const { app, url, setT } = await boot();
-  setT(100_000);
-  const socks = [];
-  for (let i = 0; i < 10; i++) { const w = await connect(url); socks.push(w); assert.equal((await ask(w, { type: 'organizer', password: 'bad' })).error, 'bad_password'); }
-  const w = await connect(url); socks.push(w);
-  setT(101_000);
-  assert.equal((await ask(w, { type: 'organizer', password: 'bad' })).error, 'bad_password'); // allowed: a second has passed
-  assert.equal((await ask(w, { type: 'organizer', password: 'pw' })).error, 'too_many_attempts'); // same instant
-  setT(102_200);
-  assert.equal((await ask(w, { type: 'organizer', password: 'pw' })).type, 'welcome');
-  await done(app, ...socks);
 });
 
 test('a participant row that says in_game with no active game gets the lobby screen, not a crash', async () => {
