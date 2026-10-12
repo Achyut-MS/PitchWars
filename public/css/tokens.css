@@ -1,0 +1,18 @@
+/* Design tokens. The ONLY file with colour values (test/css-rules.test.js enforces this).
+   Source: ui-drafts/draft.css, shell.css, play.css. */
+:root {
+  --paper: #FBF0D9; --field: #FFF8E6; --ink: #111111; --white: #FFFFFF;
+  --orange: #FF6A1F; --blue: #2E6BFF; --blue-hi: #6FA0FF;
+  --muted: #555555; --stone: #D9D4C8; --track: #E6DFCF; --locked: #F1E5C9; --placeholder: #77706A;
+  --tint-a: #FFE6D2; --tint-b: #DCE6FF; --rail: #2A2A2A;
+  --good: #1E7B34; --good-fill: #2E9E4F; --bad: #B3261E; --alarm: #FF4B4B;
+  --slab: "Alfa Slab One", Rockwell, Georgia, serif;
+  --block: "Archivo Black", "Arial Black", Impact, sans-serif;
+  --mono: "Space Mono", "Courier New", monospace;
+  --line: 3px; --line-thick: 5px; --shadow: 6px; --shadow-sm: 3px; --chamfer: 22px; --radius: 8px; --tap: 44px;
+  --logo: url("/img/logo.svg"); /* THE logo slot: swap public/img/logo.svg, or point this at the new file */
+  /* Company theme. Company A (Alpha) is the default; [data-company="B"] (Beta) swaps it. */
+  --team: var(--orange); --team-ink: var(--ink); --team-on-ink: var(--orange); --team-soft: var(--tint-a);
+}
+[data-company="A"] { --team: var(--orange); --team-ink: var(--ink); --team-on-ink: var(--orange); --team-soft: var(--tint-a); }
+[data-company="B"] { --team: var(--blue); --team-ink: var(--white); --team-on-ink: var(--blue-hi); --team-soft: var(--tint-b); }

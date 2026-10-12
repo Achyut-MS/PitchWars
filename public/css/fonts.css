@@ -1,0 +1,5 @@
+/* Offline fonts, served from the Pi. Files copied from ui-drafts/fonts (SIL Open Font License 1.1, see public/fonts/LICENSES.txt). */
+@font-face { font-family: "Alfa Slab One"; font-weight: 400; src: url("../fonts/alfa-slab-one-latin-400-normal.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "Archivo Black"; font-weight: 400; src: url("../fonts/archivo-black-latin-400-normal.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "Space Mono"; font-weight: 400; src: url("../fonts/space-mono-latin-400-normal.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "Space Mono"; font-weight: 700; src: url("../fonts/space-mono-latin-700-normal.woff2") format("woff2"); font-display: swap; }
