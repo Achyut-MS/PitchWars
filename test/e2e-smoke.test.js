@@ -49,7 +49,7 @@ test('end to end: lobby, start, ideation, shop over real WebSockets', async () =
   const dir = mkdtempSync(join(tmpdir(), 'showdown-'));
   const clock = { t: 1_000_000 };
   const port = await freePort();
-  const srv = await bootstrap({ dbFile: join(dir, 'e2e.db'), organizerPassword: 'pw', port, real: () => clock.t });
+  const srv = await bootstrap({ dbFile: join(dir, 'e2e.db'), organizerPassword: 'pw', port, real: () => clock.t, backupDir: join(dir, 'backups'), exportDir: join(dir, 'graphs') });
   const url = `ws://127.0.0.1:${port}`;
   flushNow = () => srv.app.flush();
   const sockets = [];

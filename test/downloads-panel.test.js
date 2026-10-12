@@ -20,7 +20,7 @@ function setup(games = 1) {
   for (let i = 0; i < 10; i++) addParticipant(db, `S${i}`, `P${i}`);
   const exportDir = mkdtempSync(join(tmpdir(), 'dl-'));
   const t = { v: 0 };
-  const app = createApp({ db, organizerPassword: 'pw', now: () => t.v, data, staticRoot: null, exportDir });
+  const app = createApp({ db, organizerPassword: 'pw', now: () => t.v, data, staticRoot: null, exportDir, backupDir: mkdtempSync(join(tmpdir(), 'bk-')) });
   return { db, app, t, exportDir };
 }
 function seat(db) { let i = 0; for (const c of ['A', 'B']) for (const r of ROLES) assign(db, `S${i++}`, c, r); }

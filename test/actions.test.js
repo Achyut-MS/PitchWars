@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import WebSocket from 'ws';
 import { openDb } from '../src/db.js';
 import { createApp } from '../src/server.js';
@@ -10,7 +13,7 @@ const data = loadData('data');
 async function boot() {
   const db = openDb();
   let t = 0;
-  const app = createApp({ db, organizerPassword: 'pw', now: () => t, data, staticRoot: null });
+  const app = createApp({ db, organizerPassword: 'pw', now: () => t, data, staticRoot: null, exportDir: mkdtempSync(join(tmpdir(), 'ex-')), backupDir: mkdtempSync(join(tmpdir(), 'bk-')) });
   await new Promise((r) => app.server.listen(0, r));
   return { db, app, url: `ws://127.0.0.1:${app.server.address().port}`, setT: (v) => (t = v) };
 }
@@ -289,7 +292,7 @@ test('swap_seats, replace_player and next_game are organizer actions that log', 
 
 test('the tick survives a throwing director and still pushes the clock', async () => {
   const db = openDb();
-  const app = createApp({ db, organizerPassword: 'pw', now: () => 5000, data, staticRoot: null, director: () => { throw new Error('boom'); } });
+  const app = createApp({ db, organizerPassword: 'pw', now: () => 5000, data, staticRoot: null, exportDir: mkdtempSync(join(tmpdir(), 'ex-')), backupDir: mkdtempSync(join(tmpdir(), 'bk-')), director: () => { throw new Error('boom'); } });
   await new Promise((r) => app.server.listen(0, r));
   const url = `ws://127.0.0.1:${app.server.address().port}`;
   const o = await organizer(url);
@@ -338,7 +341,7 @@ async function bootManual(extraOpts = {}) {
   let t = 0;
   const timers = [];
   const app = createApp({
-    db, organizerPassword: 'pw', now: () => t, data, staticRoot: null, ...extraOpts,
+    db, organizerPassword: 'pw', now: () => t, data, staticRoot: null, exportDir: mkdtempSync(join(tmpdir(), 'ex-')), backupDir: mkdtempSync(join(tmpdir(), 'bk-')), ...extraOpts,
     setTimer: (fn, ms) => { const h = { fn, ms, live: true }; timers.push(h); return h; },
     clearTimer: (h) => { if (h) h.live = false; },
   });

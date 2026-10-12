@@ -25,7 +25,7 @@ test('reveal over the wire: players get nothing before, everyone gets it after; 
   const dir = mkdtempSync(join(tmpdir(), 'ws-exp-'));
   const db = openDb();
   let t = 0;
-  const app = createApp({ db, organizerPassword: 'pw', now: () => t, data, staticRoot: null, exportDir: dir });
+  const app = createApp({ db, organizerPassword: 'pw', now: () => t, data, staticRoot: null, exportDir: dir, backupDir: mkdtempSync(join(tmpdir(), 'bk-')) });
   await new Promise((r) => app.server.listen(0, r));
   const url = `ws://127.0.0.1:${app.server.address().port}`;
   const socks = [];
@@ -83,7 +83,7 @@ test('end_game is gone, and Next Game without a reveal leaks nothing before it',
   const dir = mkdtempSync(join(tmpdir(), 'ws-exp-'));
   const db = openDb();
   let t = 0;
-  const app = createApp({ db, organizerPassword: 'pw', now: () => t, data, staticRoot: null, exportDir: dir });
+  const app = createApp({ db, organizerPassword: 'pw', now: () => t, data, staticRoot: null, exportDir: dir, backupDir: mkdtempSync(join(tmpdir(), 'bk-')) });
   await new Promise((r) => app.server.listen(0, r));
   const url = `ws://127.0.0.1:${app.server.address().port}`;
   const socks = [];

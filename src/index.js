@@ -29,14 +29,14 @@ export function cleanSpeed(raw) {
 
 export async function bootstrap({
   dbFile, organizerPassword, port, now = Date.now, realNow = now, speed: rawSpeed, real,
-  backupDir = 'backups', backupEveryMs = 5 * 60_000, timers = { setInterval, clearInterval },
+  backupDir = 'backups', exportDir = 'data/graphs', backupEveryMs = 5 * 60_000, timers = { setInterval, clearInterval },
 }) {
   if (dbFile !== ':memory:') mkdirSync(dirname(dbFile), { recursive: true });
   const db = openDb(dbFile);
   const speed = cleanSpeed(rawSpeed);
   const clock = createClock({ real: real ?? (speed === 1 ? realNow : speedClock(speed, realNow)) });
   resumeActiveGame(db, clock);
-  const app = createApp({ db, organizerPassword, now: clock.now, backupDir, speed });
+  const app = createApp({ db, organizerPassword, now: clock.now, backupDir, exportDir, speed });
   if (speed > 1) console.log(`REHEARSAL SPEED x${speed} - NOT FOR THE EVENT`);
   else console.log('Game speed x1 (real time)');
   app.db = db;
