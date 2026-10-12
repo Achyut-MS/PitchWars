@@ -4,6 +4,7 @@ import WebSocket from 'ws';
 import { openDb } from '../src/db.js';
 import { createApp } from '../src/server.js';
 import { loadData } from '../src/data.js';
+import { wsBarrier } from './helpers.js';
 
 const data = loadData('data');
 async function boot() {
@@ -13,11 +14,13 @@ async function boot() {
   await new Promise((r) => app.server.listen(0, r));
   return { db, app, url: `ws://127.0.0.1:${app.server.address().port}`, setT: (v) => (t = v) };
 }
-const connect = (url) => new Promise((res, rej) => { const ws = new WebSocket(url); ws.once('open', () => res(ws)); ws.once('error', rej); });
+const sockets = new Set();
+const connect = (url) => new Promise((res, rej) => { const ws = new WebSocket(url); sockets.add(ws); ws.once('open', () => res(ws)); ws.once('error', rej); });
 const next = (ws) => new Promise((res) => ws.once('message', (d) => res(JSON.parse(d))));
 async function ask(ws, msg) { const p = next(ws); ws.send(JSON.stringify(msg)); return p; }
 const done = async (app, ...ws) => { ws.forEach((s) => s.terminate()); app.wss.clients.forEach((c) => c.terminate()); await new Promise((r) => app.server.close(r)); };
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// Barrier on every open socket: the server has handled what was sent and what it pushed has arrived (no sleeping).
+const wait = () => Promise.all([...sockets].map((w) => wsBarrier(w)));
 
 async function competing() {
   const env = await boot();
@@ -122,7 +125,7 @@ test('a blocked attack tells the attacker only blocked and endsAt, never victim 
   const got = [];
   env.a.on('message', (d) => got.push(JSON.parse(d)));
   env.a.send(JSON.stringify({ type: 'attack', key: 'market_crash' }));
-  await wait(150);
+  await wait();
   const r = got.find((m) => m.type === 'attack_result');
   assert.deepEqual(Object.keys(r).sort(), ['blocked', 'endsAt', 'type']);
   assert.equal(r.blocked, true);
@@ -139,7 +142,7 @@ test('every tick in the competition earns coins and pushes fresh state', async (
   const msgs = [];
   env.a.on('message', (d) => msgs.push(JSON.parse(d)));
   env.app.tickAll();
-  await wait(100);
+  await wait();
   const state = msgs.find((m) => m.type === 'state');
   assert.ok(state, 'a state message was pushed');
   assert.equal(state.view.competition.rates.COO, 27);
@@ -151,7 +154,7 @@ test('two ticks in the same server second do not double-credit or double-push', 
   const env = await competing();
   env.db.prepare("INSERT OR REPLACE INTO owned (game_id, company, family, item_id, bought_at, charged) VALUES (1, 'A', 'O03', 'O03', 0, 150)").run();
   env.app.tickAll();
-  await wait(100);
+  await wait();
   env.setT(805_000);
   const msgs = [];
   env.a.on('message', (d) => msgs.push(JSON.parse(d)));
@@ -160,7 +163,7 @@ test('two ticks in the same server second do not double-credit or double-push', 
   env.setT(805_400);
   env.app.tickAll();
   env.app.tickAll();
-  await wait(100);
+  await wait();
   assert.deepEqual(env.db.prepare("SELECT wallet, cto_coins+cmo_coins+coo_coins c FROM company_state WHERE company='A'").get(), w1);
   assert.equal(msgs.filter((m) => m.type === 'state').length, 1, JSON.stringify(msgs.map((m) => m.type)));
   await done(env.app, env.o, env.a, env.b);
@@ -174,7 +177,7 @@ test('a failing stage does not stop the others or the process', async () => {
   env.a.on('message', (d) => msgs.push(JSON.parse(d)));
   env.setT(806_000);
   try { env.app.tickAll(); } finally { console.error = origErr; }
-  await wait(100);
+  await wait();
   assert.ok(msgs.find((m) => m.type === 'tick'));
   assert.ok(msgs.find((m) => m.type === 'state'));
   await done(env.app, env.o, env.a, env.b);
@@ -186,12 +189,12 @@ test('the tick carries the warning only when there is one', async () => {
   const got = [];
   env.a.on('message', (d) => got.push(JSON.parse(d)));
   env.app.tickAll();
-  await wait(100);
+  await wait();
   assert.equal(got.find((m) => m.type === 'tick').warning, '5min');
   env.setT(900_000);
   got.length = 0;
   env.app.tickAll();
-  await wait(100);
+  await wait();
   assert.equal('warning' in got.find((m) => m.type === 'tick'), false);
   await done(env.app, env.o, env.a, env.b);
 });

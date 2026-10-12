@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import WebSocket from 'ws';
+import { wsBarrier, isBarrierReply } from './helpers.js';
 import { openDb } from '../src/db.js';
 import { addParticipant } from '../src/roster.js';
 import { ROLES, assign, startGame, endGame } from '../src/lobby.js';
@@ -72,9 +73,9 @@ test('a completed participant gets no live ticks while a later game runs', async
   const ws = await connect(url);
   assert.equal((await ask(ws, { type: 'login', admissionId: 'S0' })).view, 'graphs');
   let got = false;
-  ws.on('message', () => { got = true; });
+  ws.on('message', (d) => { if (!isBarrierReply(JSON.parse(d))) got = true; });
   app.tickAll();
-  await new Promise((r) => setTimeout(r, 100));
+  await wsBarrier(ws); // anything the server sent for that tick has arrived
   assert.equal(got, false);
   await close(app, ws);
 });

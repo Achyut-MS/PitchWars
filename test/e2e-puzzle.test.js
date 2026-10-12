@@ -4,17 +4,17 @@ import WebSocket from 'ws';
 import { openDb } from '../src/db.js';
 import { createApp } from '../src/server.js';
 import { loadData } from '../src/data.js';
+import { waitFor, askBarrier, barrier } from './helpers.js';
 
 const data = loadData('data');
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function client(url) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(url);
     const c = { ws, all: [], last: null };
     ws.on('message', (raw) => { const m = JSON.parse(raw.toString()); c.all.push(m); c.last = m; });
-    c.ask = async (m) => { ws.send(JSON.stringify(m)); await sleep(80); return c.last; };
-    c.send = async (m) => { ws.send(JSON.stringify(m)); await sleep(80); };
+    c.ask = (m) => askBarrier(c, ws, m);
+    c.send = async (m) => { await askBarrier(c, ws, m); };
     ws.once('open', () => resolve(c));
     ws.once('error', reject);
   });
@@ -36,7 +36,7 @@ test('CFO plays puzzles over the real protocol: paid once, two free skips then a
     await o.ask({ type: 'roster_import', text: roster });
     const roles = ['CEO', 'CTO', 'CFO', 'CMO', 'COO'];
     for (let i = 0; i < 10; i++) o.ws.send(JSON.stringify({ type: 'assign', admissionId: `S${i}`, company: i < 5 ? 'A' : 'B', role: roles[i % 5] }));
-    await sleep(150);
+    await waitFor(() => db.prepare('SELECT COUNT(*) AS n FROM participants WHERE role IS NOT NULL').get().n === 10);
     await o.ask({ type: 'start_game', problemId: 1 });
     t = 200_000;
     const ceo = await mk(); await ceo.ask({ type: 'login', admissionId: 'S0' });
@@ -54,7 +54,7 @@ test('CFO plays puzzles over the real protocol: paid once, two free skips then a
 
     const ans = JSON.stringify({ type: 'puzzle_submit', answer: solution() });
     cfo.ws.send(ans); cfo.ws.send(ans);
-    await sleep(200);
+    await barrier(cfo, cfo.ws);
     assert.equal(wallet(), w0 + 20);
     assert.equal(cfo.all.filter((m) => m.type === 'puzzle_result' && m.ok).length, 1);
     assert.equal(cfo.all.filter((m) => m.type === 'error').length, 0);

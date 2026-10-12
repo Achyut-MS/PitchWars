@@ -4,9 +4,9 @@ import WebSocket from 'ws';
 import { openDb } from '../src/db.js';
 import { createApp } from '../src/server.js';
 import { loadData } from '../src/data.js';
+import { waitFor, askBarrier } from './helpers.js';
 
 const data = loadData('data');
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function client(url) {
   return new Promise((resolve, reject) => {
@@ -20,7 +20,7 @@ function client(url) {
       c.last = m;
     });
     c.send = (m) => ws.send(JSON.stringify(m));
-    c.ask = async (m) => { c.send(m); await sleep(60); return c.last; };
+    c.ask = (m) => askBarrier(c, ws, m);
     ws.once('open', () => resolve(c));
     ws.once('error', reject);
   });
@@ -42,7 +42,7 @@ async function setup(extra = 0) {
   await o.ask({ type: 'roster_import', text: roster });
   const roles = ['CEO', 'CTO', 'CFO', 'CMO', 'COO'];
   for (let i = 0; i < 10; i++) o.send({ type: 'assign', admissionId: `S${i}`, company: i < 5 ? 'A' : 'B', role: roles[i % 5] });
-  await sleep(100);
+  await waitFor(() => db.prepare('SELECT COUNT(*) AS n FROM participants WHERE role IS NOT NULL').get().n === 10);
   env.setT(0);
   await o.ask({ type: 'start_game', problemId: 1 });
   env.setT(200_000);
@@ -65,7 +65,8 @@ test('a short competition over the real protocol: purchases, attack, shield bloc
     env.app.tickAll(); // economy starts
     own(env, 'A', 'O01', 60); own(env, 'A', 'O02', 100); own(env, 'A', 'O03', 150);
     for (let s = 801; s <= 805; s++) { env.setT(s * 1000); env.app.tickAll(); }
-    await sleep(100);
+    env.app.flush();
+    await waitFor(() => env.p.S4.view?.competition?.rates?.COO === 27).catch(() => {});
     assert.equal(env.p.S4.view.competition.rates.COO, 27);
     const walletA = wallet(env, 'A');
     assert.ok(walletA > 1000 + 5 * 27 / 60 - 1 && walletA <= 1000 + 5 * 27 / 60 + 1 - 0, `wallet A ${walletA}`);
@@ -76,7 +77,8 @@ test('a short competition over the real protocol: purchases, attack, shield bloc
     assert.ok(r1.type === 'state' || r1.type === 'attack_result');
     assert.ok(env.p.S0.all.some((x) => JSON.parse(x).type === 'attack_result' && JSON.parse(x).blocked === false));
     assert.equal(before - wallet(env, 'A'), 300);
-    await sleep(300); // the coalesced push reaches the other players
+    env.app.flush(); // the coalesced push reaches the other players
+    await waitFor(() => env.p.S5.all.some((x) => JSON.parse(x).type === 'state' && /Customer demand has softened/.test(x))).catch(() => {});
 
     // Second attack in the cooldown is refused and not charged.
     assert.deepEqual(await env.p.S0.ask({ type: 'attack', key: 'market_crash' }), { type: 'error', error: 'attack on cooldown' });
@@ -100,7 +102,8 @@ test('a short competition over the real protocol: purchases, attack, shield bloc
     assert.ok(env.o.all.some((x) => JSON.parse(x).error === 'coins were already injected in this game'));
 
     // Victim: every message any B player ever received never carries the attacker.
-    env.setT(951_000); env.app.tickAll(); await sleep(150);
+    env.setT(951_000); env.app.tickAll(); env.app.flush();
+    await waitFor(() => ['S5', 'S6', 'S7', 'S8', 'S9'].every((id) => env.p[id].all.join('\n').includes('Customer demand has softened'))).catch(() => {});
     for (const id of ['S5', 'S6', 'S7', 'S8', 'S9']) {
       const text = env.p[id].all.join('\n');
       // The victim CEO (S5) legitimately sees its own attack menu, so attack names are checked on non-CEOs only.
@@ -129,7 +132,8 @@ test('performance: 80 sessions, a full tick plus coalesced push stays under 1 s'
       worst = Math.max(worst, performance.now() - t0);
     }
     assert.ok(worst < 1000, `worst tick ${worst.toFixed(1)} ms`);
-    await sleep(300);
+    env.app.flush();
+    await waitFor(() => extra[0].view?.competition).catch(() => {});
     assert.ok(extra[0].view.competition);
   } finally { await close(env); }
 });

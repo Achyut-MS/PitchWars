@@ -7,7 +7,11 @@ import net from 'node:net';
 import WebSocket from 'ws';
 import { bootstrap } from '../src/index.js';
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Every open client, and the server's flush(): sync points below wait for the server to have handled everything
+// already sent (one barrier round-trip per socket) and then push the coalesced state at once, instead of sleeping.
+const live = new Set();
+let flushNow = () => {};
+const settleAll = async () => { await Promise.all([...live].map((x) => x.settle())); flushNow(); };
 const freePort = () => new Promise((res) => { const s = net.createServer(); s.listen(0, () => { const p = s.address().port; s.close(() => res(p)); }); });
 
 // A WebSocket client that remembers its latest state view and every state it saw.
@@ -31,9 +35,11 @@ function client(url) {
     // Pushes may be coalesced (about 200 ms), so replies are not matched to requests one by one:
     // fire() sends, expectError() waits for the error reply, and sync() settles then reads fresh state.
     c.fire = (m) => c.send(m);
+    c.settle = async () => { if (ws.readyState !== 1) return; const p = c.wait((x) => x.type === 'error' && x.error === 'unknown_id'); c.send({ type: 'login', admissionId: '__barrier__' }); await p; };
     c.expectError = async (m) => { const p = c.wait((x) => x.type === 'error'); c.send(m); return (await p).error; };
-    c.sync = async () => { await sleep(350); const p = c.wait((x) => x.type === 'state'); c.send({ type: 'sync' }); return (await p).view; };
+    c.sync = async () => { await settleAll(); const p = c.wait((x) => x.type === 'state'); c.send({ type: 'sync' }); return (await p).view; };
     c.ask = async (m) => { c.send(m); return c.sync(); };
+    live.add(c); ws.once('close', () => live.delete(c));
     ws.once('open', () => resolve(c));
     ws.once('error', reject);
   });
@@ -45,6 +51,7 @@ test('end to end: lobby, start, ideation, shop over real WebSockets', async () =
   const port = await freePort();
   const srv = await bootstrap({ dbFile: join(dir, 'e2e.db'), organizerPassword: 'pw', port, real: () => clock.t });
   const url = `ws://127.0.0.1:${port}`;
+  flushNow = () => srv.app.flush();
   const sockets = [];
   try {
     // Static files are served.
@@ -95,7 +102,7 @@ test('end to end: lobby, start, ideation, shop over real WebSockets', async () =
     org.fire({ type: 'swap_seats', a: 'S1', b: 'S2' });
     org.fire({ type: 'swap_seats', a: 'S1', b: 'S2' });
 
-    await sleep(350);
+    await settleAll();
     // Ideation. Players only learn of the new phase through a sync (here: after the tick-driven director).
     clock.t += 181_000;
     await p.S0.wait((m) => m.type === 'tick' && m.phase === 'ideation', 5000);
@@ -108,7 +115,7 @@ test('end to end: lobby, start, ideation, shop over real WebSockets', async () =
     p.S0.fire({ type: 'pick', ideaId: 'H1' });
     assert.equal(await p.S0.expectError({ type: 'pick', ideaId: 'H1' }), 'your company has already picked');
     p.S5.fire({ type: 'pick', ideaId: 'H2' });
-    await sleep(350);
+    await settleAll();
     const from = Object.fromEntries(Object.entries(p).map(([k, c]) => [k, c.seen.length]));
     for (const c of Object.values(p)) await c.sync();
     assert.equal(p.S0.view.clock.phase, 'shop');

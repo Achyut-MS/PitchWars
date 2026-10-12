@@ -11,16 +11,19 @@ import { loadData } from '../src/data.js';
 import { readWorkbook } from '../src/xlsx.js';
 
 const data = loadData('data');
-const settle = (ms = 30) => new Promise((r) => setTimeout(r, ms));
+import { waitFor } from './helpers.js';
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 // A real WebSocket client that keeps every raw message it ever received.
 class Bot {
   constructor(ws) {
     this.ws = ws; this.raw = []; this.latest = {};
+    this.barriers = 0; this.barrierHit = 0;
     ws.on('message', (d) => {
       const text = d.toString();
       const m = JSON.parse(text);
+      // reply to a barrier probe (never-valid login): marks "everything sent before has been handled"; not recorded
+      if (this.barriers > this.barrierHit && m.type === 'error' && m.error === 'unknown_id') { this.barrierHit++; return; }
       this.raw.push(text);
       this.latest[m.type] = m;
     });
@@ -31,14 +34,17 @@ class Bot {
     return new Bot(ws);
   }
   // Sends one message and returns the messages that came back.
+  // The server handles one socket's messages in order, so the probe's reply marks the end of this message's replies.
   async say(msg) {
-    await settle();
     const mark = this.raw.length;
     this.ws.send(JSON.stringify(msg));
-    // Every request gets a reply; a slow one (puzzle generation) is waited for.
-    for (let i = 0; i < 300 && this.raw.length === mark; i++) await settle(10);
-    await settle();
+    await this.barrier();
     return this.raw.slice(mark).map((x) => JSON.parse(x));
+  }
+  async barrier() {
+    const want = ++this.barriers;
+    this.ws.send(JSON.stringify({ type: 'login', admissionId: '__barrier__' }));
+    await waitFor(() => this.barrierHit >= want, { message: 'barrier timed out' });
   }
   state() { return this.latest.state && this.latest.state.view; }
 }
@@ -66,7 +72,8 @@ test('a whole game from the roster to the Excel export, then a second game', { t
       app.tickAll();
       if (s % 25 === 0) await new Promise((r) => setImmediate(r));
     }
-    await settle(60);
+    app.flush();
+    await Promise.all(bots.filter((b) => b.ws.readyState === 1).map((b) => b.barrier()));
   }
   const wallet = (c, g = 1) => db.prepare('SELECT wallet FROM company_state WHERE game_id=? AND company=?').get(g, c).wallet;
   const solutionOpen = () => JSON.parse(db.prepare('SELECT solution FROM puzzle_sessions WHERE ended_at IS NULL').get().solution);
@@ -227,8 +234,9 @@ test('a whole game from the roster to the Excel export, then a second game', { t
     await aCeo.say({ type: 'sync' });
     assert.deepEqual(Object.keys(aCeo.state().results), ['companyVsCompany', 'coinDifference', 'roleBars']);
 
+    const open = app.wss.clients.size;
     aCeo.ws.terminate();
-    await settle(100);
+    await waitFor(() => app.wss.clients.size < open);
     const again = await bot();
     assert.equal((await again.say({ type: 'login', admissionId: 'S0' })).find((m) => m.type === 'welcome').view, 'game');
     await again.say({ type: 'sync' });

@@ -4,6 +4,7 @@ import WebSocket from 'ws';
 import { openDb } from '../src/db.js';
 import { createApp } from '../src/server.js';
 import { loadData } from '../src/data.js';
+import { wsBarrier, waitFor } from './helpers.js';
 
 const data = loadData('data');
 async function boot() {
@@ -13,8 +14,9 @@ async function boot() {
   await new Promise((r) => app.server.listen(0, r));
   return { db, app, url: `ws://127.0.0.1:${app.server.address().port}`, setT: (v) => (t = v) };
 }
+const sockets = new Set();
 const connect = (url) => new Promise((res, rej) => {
-  const ws = new WebSocket(url); ws.log = [];
+  const ws = new WebSocket(url); ws.log = []; sockets.add(ws);
   ws.on('message', (d) => ws.log.push(d.toString()));
   ws.once('open', () => res(ws)); ws.once('error', rej);
 });
@@ -22,7 +24,8 @@ const next = (ws) => new Promise((res) => ws.once('message', (d) => res(JSON.par
 async function ask(ws, msg) { const p = next(ws); ws.send(JSON.stringify(msg)); return p; }
 const nextN = (ws, n) => new Promise((res) => { const got = []; const on = (d) => { got.push(JSON.parse(d)); if (got.length === n) { ws.off('message', on); res(got); } }; ws.on('message', on); });
 const done = async (app, ...ws) => { ws.forEach((s) => s.terminate()); app.wss.clients.forEach((c) => c.terminate()); await new Promise((r) => app.server.close(r)); };
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// Barrier on every open socket: the server has handled what was sent and what it pushed has arrived (no sleeping).
+const wait = () => Promise.all([...sockets].map((w) => wsBarrier(w)));
 
 async function competing() {
   const env = await boot();
@@ -124,7 +127,7 @@ test('the puzzle and its solution never reach any other socket, and the CFO sock
   await ask(cfo, { type: 'puzzle_next' });
   await ask(cfo, { type: 'puzzle_submit', answer: [0] });
   env.app.tickAll();
-  await wait(300);
+  await wait();
   const row = env.db.prepare('SELECT * FROM puzzle_sessions').get();
   const mine = JSON.stringify(JSON.parse(row.puzzle));
   for (const s of [env.a, env.b, mate, env.o]) {
@@ -150,7 +153,8 @@ test('solving pushes the wallet to the actor at once and the teammates by the co
   const got = await two;
   assert.deepEqual(got.find((m) => m.type === 'puzzle_result'), { type: 'puzzle_result', ok: true, coins: 20 });
   assert.equal(got.find((m) => m.type === 'state').view.wallet, env.db.prepare("SELECT wallet FROM company_state WHERE company='A'").get().wallet);
-  await wait(400);
+  env.app.flush();
+  await waitFor(() => mate.log.some((x) => JSON.parse(x).type === 'state' && JSON.parse(x).view.wallet === 1020)).catch(() => {});
   assert.ok(mate.log.some((x) => JSON.parse(x).type === 'state' && JSON.parse(x).view.wallet === 1020));
   assert.ok(cfo.log.length > before);
   const ev = env.db.prepare("SELECT type FROM events WHERE type LIKE 'puzzle_%'").all().map((r) => r.type);

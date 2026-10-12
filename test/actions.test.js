@@ -4,6 +4,7 @@ import WebSocket from 'ws';
 import { openDb } from '../src/db.js';
 import { createApp } from '../src/server.js';
 import { loadData } from '../src/data.js';
+import { wsBarrier, isBarrierReply } from './helpers.js';
 
 const data = loadData('data');
 async function boot() {
@@ -13,7 +14,10 @@ async function boot() {
   await new Promise((r) => app.server.listen(0, r));
   return { db, app, url: `ws://127.0.0.1:${app.server.address().port}`, setT: (v) => (t = v) };
 }
-const connect = (url) => new Promise((res, rej) => { const ws = new WebSocket(url); ws.once('open', () => res(ws)); ws.once('error', rej); });
+const sockets = new Set();
+const connect = (url) => new Promise((res, rej) => { const ws = new WebSocket(url); sockets.add(ws); ws.once('open', () => res(ws)); ws.once('error', rej); });
+// Instead of sleeping: every open socket has handled what was sent and received what the server pushed so far.
+const tick = () => Promise.all([...sockets].map((w) => wsBarrier(w)));
 const next = (ws) => new Promise((res) => ws.once('message', (d) => res(JSON.parse(d))));
 async function ask(ws, msg) { const p = next(ws); ws.send(JSON.stringify(msg)); return p; }
 // Sends a message and returns the next *state* message (skipping nothing: actions reply with state first).
@@ -125,7 +129,12 @@ async function runningGame(o, setT) {
   setT(1000);
   assert.equal((await send(o, { type: 'start_game', problemId: 1 })).type, 'state');
 }
-const quiet = (ws, ms = 60) => new Promise((res) => { let got = null; const f = (d) => { got = JSON.parse(d); }; ws.on('message', f); setTimeout(() => { ws.off('message', f); res(got); }, ms); });
+// Watches ws; awaiting it settles via a barrier (everything the server pushed to ws by then has arrived) and yields the last message or null.
+const quiet = (ws) => {
+  let got = null; const f = (d) => { const m = JSON.parse(d); if (!isBarrierReply(m)) got = m; };
+  ws.on('message', f);
+  return { then(res, rej) { wsBarrier(ws).then(() => { ws.off('message', f); return got; }).then(res, rej); } };
+};
 
 test('the roster upload response lists rejected rows with line and reason', async () => {
   const { app, url } = await boot();
@@ -312,9 +321,10 @@ test('pingAll terminates sockets that never answered and keeps live ones', async
   dead._receiver.removeAllListeners('ping'); // never pongs
   dead.pong = () => {};
   const closed = new Promise((r) => dead.once('close', r));
-  await new Promise((r) => setTimeout(r, 20));
+  await tick(); // the server has registered both connections
+  const pinged = new Promise((r) => live.once('ping', r));
   app.pingAll(); // marks everyone suspect and pings
-  await new Promise((r) => setTimeout(r, 50));
+  await pinged; await wsBarrier(live); // the live socket's pong (sent on ping) precedes its barrier probe
   app.pingAll(); // dead one never answered
   await closed;
   assert.equal(live.readyState, 1);
@@ -336,8 +346,7 @@ async function bootManual() {
   const fire = () => timers.filter((h) => h.live).forEach((h) => { h.live = false; h.fn(); });
   return { db, app, url: `ws://127.0.0.1:${app.server.address().port}`, setT: (v) => (t = v), fire, timers };
 }
-const collect = (ws) => { const got = []; ws.on('message', (d) => got.push(JSON.parse(d))); return got; };
-const tick = () => new Promise((r) => setTimeout(r, 40));
+const collect = (ws) => { const got = []; ws.on('message', (d) => { const m = JSON.parse(d); if (!isBarrierReply(m)) got.push(m); }); return got; };
 
 test('the actor gets state at once; everyone else gets ONE coalesced push after five rapid actions', async () => {
   const { app, url, setT, fire } = await bootManual();

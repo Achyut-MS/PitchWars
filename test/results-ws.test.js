@@ -7,15 +7,15 @@ import WebSocket from 'ws';
 import { openDb } from '../src/db.js';
 import { createApp } from '../src/server.js';
 import { loadData } from '../src/data.js';
+import { waitFor, askBarrier } from './helpers.js';
 
 const data = loadData('data');
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function client(url) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(url);
     const c = { ws, all: [], last: null };
     ws.on('message', (raw) => { const m = JSON.parse(raw.toString()); c.all.push(m); c.last = m; });
-    c.ask = async (m) => { ws.send(JSON.stringify(m)); await sleep(80); return c.last; };
+    c.ask = (m) => askBarrier(c, ws, m);
     ws.once('open', () => resolve(c));
     ws.once('error', reject);
   });
@@ -38,7 +38,7 @@ test('reveal over the wire: players get nothing before, everyone gets it after; 
     await o.ask({ type: 'roster_import', text: roster });
     const roles = ['CEO', 'CTO', 'CFO', 'CMO', 'COO'];
     for (let i = 0; i < 10; i++) o.ws.send(JSON.stringify({ type: 'assign', admissionId: `S${i}`, company: i < 5 ? 'A' : 'B', role: roles[i % 5] }));
-    await sleep(150);
+    await waitFor(() => db.prepare('SELECT COUNT(*) AS n FROM participants WHERE role IS NOT NULL').get().n === 10);
     await o.ask({ type: 'start_game', problemId: 1 });
     const p = await mk(); await p.ask({ type: 'login', admissionId: 'S0' });
     const q = await mk(); await q.ask({ type: 'login', admissionId: 'S7' });
@@ -57,7 +57,8 @@ test('reveal over the wire: players get nothing before, everyone gets it after; 
     assert.equal(/<svg|"results"|"graphs"/.test(JSON.stringify(p.all) + JSON.stringify(q.all)), false);
 
     await o.ask({ type: 'reveal' });
-    await sleep(300);
+    app.flush();
+    await waitFor(() => [p, q].every((c) => { const st = [...c.all].reverse().find((m) => m.type === 'state'); return st && (JSON.stringify(st.view.results).match(/<svg/g) || []).length === 3; })).catch(() => {});
     for (const c of [p, q]) {
       const st = [...c.all].reverse().find((m) => m.type === 'state');
       assert.equal((JSON.stringify(st.view.results).match(/<svg/g) || []).length, 3);
@@ -66,7 +67,8 @@ test('reveal over the wire: players get nothing before, everyone gets it after; 
     assert.equal(db.prepare("SELECT COUNT(*) AS n FROM events WHERE type='graphs_revealed'").get().n, 1);
 
     await o.ask({ type: 'next_game' });
-    await sleep(300);
+    app.flush();
+    await waitFor(() => [...p.all].reverse().find((m) => m.type === 'state')?.view.screen === 'graphs').catch(() => {});
     const st = [...p.all].reverse().find((m) => m.type === 'state');
     assert.equal(st.view.screen, 'graphs');
     assert.equal(st.view.me.status, 'completed');
@@ -94,7 +96,7 @@ test('end_game is gone, and Next Game without a reveal leaks nothing before it',
     await o.ask({ type: 'roster_import', text: roster });
     const roles = ['CEO', 'CTO', 'CFO', 'CMO', 'COO'];
     for (let i = 0; i < 10; i++) o.ws.send(JSON.stringify({ type: 'assign', admissionId: `S${i}`, company: i < 5 ? 'A' : 'B', role: roles[i % 5] }));
-    await sleep(150);
+    await waitFor(() => db.prepare('SELECT COUNT(*) AS n FROM participants WHERE role IS NOT NULL').get().n === 10);
     await o.ask({ type: 'start_game', problemId: 1 });
     const p = await mk(); await p.ask({ type: 'login', admissionId: 'S0' });
     t = 1_800_000;
@@ -104,7 +106,8 @@ test('end_game is gone, and Next Game without a reveal leaks nothing before it',
     assert.equal((await o.ask({ type: 'end_game' })).error, 'bad_message');
     assert.equal(db.prepare('SELECT ended_at FROM games').get().ended_at, null);
     await o.ask({ type: 'next_game' });
-    await sleep(300);
+    app.flush();
+    await waitFor(() => [...p.all].reverse().find((m) => m.type === 'state')?.view.screen === 'graphs').catch(() => {});
     const st = [...p.all].reverse().find((m) => m.type === 'state');
     assert.equal(st.view.screen, 'graphs');
     assert.ok(st.view.graphs);

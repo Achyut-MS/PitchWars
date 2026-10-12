@@ -5,6 +5,7 @@ import { openDb } from '../src/db.js';
 import { addParticipant } from '../src/roster.js';
 import { createApp } from '../src/server.js';
 import { loadData } from '../src/data.js';
+import { waitFor } from './helpers.js';
 
 const data = loadData('data');
 async function boot() {
@@ -12,12 +13,15 @@ async function boot() {
   addParticipant(db, 'S0', 'P0');
   const app = createApp({ db, organizerPassword: 'pw', now: () => 7000, data, staticRoot: null });
   await new Promise((r) => app.server.listen(0, r));
+  curApp = app;
   return { db, app, port: app.server.address().port };
 }
 const connect = (port) => new Promise((res, rej) => { const ws = new WebSocket(`ws://127.0.0.1:${port}`); ws.once('open', () => res(ws)); ws.once('error', rej); });
 const next = (ws) => new Promise((res) => ws.once('message', (d) => res(JSON.parse(d))));
 const closed = (ws) => new Promise((r) => ws.once('close', r));
-const settle = () => new Promise((r) => setTimeout(r, 100));
+// the server's close handler (which logs the disconnect) has run once its socket is gone from wss.clients
+let curApp = null;
+const settle = () => waitFor(() => curApp.wss.clients.size === 0);
 const rows = (db, type) => db.prepare('SELECT * FROM events WHERE type = ? ORDER BY id').all(type);
 const done = async (app) => { app.wss.clients.forEach((c) => c.terminate()); await new Promise((r) => app.server.close(r)); };
 

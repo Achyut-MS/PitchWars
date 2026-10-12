@@ -6,7 +6,7 @@ import { createClock, speedClock } from '../src/clock.js';
 import { phaseAt } from '../src/phases.js';
 import { activeGame } from '../src/persist.js';
 import { organizerView, viewFor } from '../src/views.js';
-import { makeRunning, data, give } from './helpers.js';
+import { makeRunning, data, give, wsBarrier } from './helpers.js';
 
 // Plays a whole game (1780 game seconds) with an injected real clock, one tick per game second as bootstrap does.
 function playGame(speed) {
@@ -57,9 +57,9 @@ test('starting a game at speed > 1 records it in events; at speed 1 it does not'
     await new Promise((r) => ws.once('open', r));
     const send = (m) => ws.send(JSON.stringify(m));
     send({ type: 'organizer', password: 'pw' });
-    await new Promise((r) => setTimeout(r, 50));
+    await wsBarrier(ws);
     send({ type: 'start_game', problemId: 1 });
-    await new Promise((r) => setTimeout(r, 100));
+    await wsBarrier(ws);
     const rows = h.db.prepare("SELECT payload FROM events WHERE type='rehearsal_speed'").all();
     if (speed > 1) assert.deepEqual(rows.map((r) => JSON.parse(r.payload).speed), [10]);
     else assert.equal(rows.length, 0);

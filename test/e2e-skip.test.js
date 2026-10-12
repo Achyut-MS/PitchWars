@@ -4,16 +4,16 @@ import WebSocket from 'ws';
 import { openDb } from '../src/db.js';
 import { createApp } from '../src/server.js';
 import { loadData } from '../src/data.js';
+import { waitFor, askBarrier } from './helpers.js';
 
 const data = loadData('data');
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function client(url) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(url);
     const c = { ws, all: [], last: null };
     ws.on('message', (raw) => { const m = JSON.parse(raw.toString()); c.all.push(m); c.last = m; });
-    c.ask = async (m) => { ws.send(JSON.stringify(m)); await sleep(60); return c.last; };
+    c.ask = (m) => askBarrier(c, ws, m);
     ws.once('open', () => resolve(c));
     ws.once('error', reject);
   });
@@ -35,7 +35,7 @@ test('skip_phase walks Briefing to Competition over real sockets; ideation auto-
     await o.ask({ type: 'roster_import', text: roster });
     const roles = ['CEO', 'CTO', 'CFO', 'CMO', 'COO'];
     for (let i = 0; i < 10; i++) o.ws.send(JSON.stringify({ type: 'assign', admissionId: `S${i}`, company: i < 5 ? 'A' : 'B', role: roles[i % 5] }));
-    await sleep(100);
+    await waitFor(() => db.prepare('SELECT COUNT(*) AS n FROM participants WHERE role IS NOT NULL').get().n === 10);
     await o.ask({ type: 'start_game', problemId: 1 });
     const p = await mk();
     await p.ask({ type: 'login', admissionId: 'S0' });
@@ -53,7 +53,8 @@ test('skip_phase walks Briefing to Competition over real sockets; ideation auto-
       assert.equal(r.view.game.clock.phase, expect);
       t += 1000;
       app.tickAll(); app.tickAll();
-      await sleep(40);
+      app.flush();
+      await waitFor(() => view() === expect && [...o.all].reverse().find((m) => m.type === 'tick')?.phase === expect).catch(() => {});
       assert.equal(view(), expect);
       const tick = [...o.all].reverse().find((m) => m.type === 'tick');
       assert.equal(tick.phase, expect);
