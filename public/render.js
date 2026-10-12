@@ -1,3 +1,5 @@
+import { icon, companyAttr, companyMark, companyOf, roleOf, phaseOf, roleChips, logo, ROLE_ICON, ROLE_TITLE } from './kit.js';
+
 export const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -19,12 +21,20 @@ const send = (label, msg, cls = '', off = false) =>
   `<button class="${cls}" data-send='${attr(JSON.stringify(msg))}'${off ? ' disabled' : ''}>${esc(label)}</button>`;
 
 export function renderLogin(error) {
-  return `<form id="login" class="card">
-  <h1>Startup Showdown</h1>
-  <label>Admission ID <input name="id" autocomplete="off" autocapitalize="characters" autofocus></label>
-  <button type="submit">Enter</button>
+  return `<div class="login-page">
+<header class="topbar">${logo()}<span class="brand">Makerspace</span><span class="tag">Create.<br>Ideate.<br>Innovate.</span></header>
+<main class="page">
+  <div class="title"><h1><span class="one">Future</span> <span class="two">Makers</span></h1></div>
+  <p class="sub">Startup Showdown</p>
+  <form id="login" class="card">
+  <h2>Participant <b>Login</b></h2>
+  <label class="field">${icon('i-user')}<span class="sr-only">Admission ID</span><input name="id" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Admission ID" autofocus></label>
+  <button type="submit" class="join">Join game</button>
   ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ''}
-</form>`;
+</form>
+  <aside class="card info">${icon('i-info', 'i big')}<ul><li>Use your registered Admission ID.</li><li>Only IDs from the official roster are allowed.</li></ul></aside>
+  <a class="org-link" href="/organizer.html">Organizer login</a>
+</main></div>`;
 }
 
 // The clock turns red in the last 10 seconds (server-sent remainingSec only).
@@ -34,9 +44,9 @@ function header(v) {
   const { me, clock, wallet } = v;
   const red = clockClass(clock.remainingSec) || (clock.warning === 'last10' ? 'red' : '');
   return `<header class="bar compact">
-  <span class="who">Company ${esc(me.company)}: ${esc(me.role)} <small class="phase">${esc(clock.phase)}</small></span>
-  <span class="wallet">${esc(plural(wallet, 'coin'))}</span>
-  <span id="clock"${red ? ' class="red"' : ''}>${fmtClock(clock.remainingSec)}</span>
+  <span class="who">${companyMark(me.company)}<span><b>Company ${esc(me.company)}</b> ${esc(me.role)} <small class="phase">${esc(clock.phase)}</small></span></span>
+  <span class="timer"><span class="pill"><span id="clock"${red ? ' class="red"' : ''}>${fmtClock(clock.remainingSec)}</span></span></span>
+  <span class="wallet">${roleChips(roleOf(me.role))}${icon('i-coins')}${esc(plural(wallet, 'coin'))}</span>
 </header>`;
 }
 
@@ -45,24 +55,43 @@ function ownedPanel(v) {
   return `<ul class="owned">${v.owned.map((o) => `<li>${esc(o.label)} <span>${esc(o.charged)}</span></li>`).join('')}</ul>`;
 }
 
+const ROLE_JOB = {
+  CEO: 'Lead the team. Make the final idea pick, approve the CTO\'s features and recommend items to the CFO.',
+  CTO: 'Build the product. Request the features and parts that make it sell.',
+  CFO: 'Guard the coins. Approve or reject each request, oldest first.',
+  CMO: 'Build the brand. Pick who to sell to, the name, the tagline and the ads.',
+  COO: 'Keep it running. Fix the idea\'s risks and buy protection.',
+};
+
 function briefing(v) {
-  return `${header(v)}<main><section class="card">
-  <h2>You are the ${esc(v.me.role)}</h2>
+  const role = roleOf(v.me.role);
+  return `${header(v)}<main class="brief">
+  <section class="card company-card">${companyMark(v.me.company)}<div><span class="words">Your company</span><span class="name">Company ${esc(v.me.company)}</span></div></section>
+  <section class="card role-card"><h2>You are the ${esc(v.me.role)}</h2>
+    <div class="head2">${icon(ROLE_ICON[role] || 'i-user', 'chip')}<span class="code">${esc(role)}</span></div>
+    <p class="full">${esc(ROLE_TITLE[role] || '')}</p><p>${esc(ROLE_JOB[role] || '')}</p></section>
+  <section class="card problem-card"><h2>Problem statement</h2>
   <h3>${esc(v.problem.title)}</h3><p>${esc(v.problem.statement)}</p>
   <p class="muted">The game starts when the countdown ends.</p></section></main>`;
 }
 
 function ideation(v) {
   const { ideas, picked, canPick } = v.ideation;
-  const cards = ideas.map((i) => `<li class="idea${i.mine ? ' mine' : ''}">
+  const cards = ideas.map((i) => `<li class="idea${i.mine ? ' mine' : ''}${picked === i.id ? ' chosen' : ''}">
+    <span class="pic dots">${icon(i.type === 'software' ? 'i-app' : 'i-chip')}</span>
     <h3>${esc(i.name)} <small>${esc(i.type)}</small></h3><p>${esc(i.description)}</p>
     <p class="votes">${esc(plural(i.votes, 'vote'))}</p>
     ${picked ? '' : send(i.mine ? 'Your vote' : 'Vote', { type: 'vote', ideaId: i.id })}
     ${canPick ? send('Pick this idea', { type: 'pick', ideaId: i.id }, 'primary') : ''}
   </li>`).join('');
-  return `${header(v)}<main><h2>${esc(v.problem.title)}</h2>
-  ${picked ? `<p class="notice">Your company picked ${esc(ideas.find((i) => i.id === picked)?.name ?? picked)}. Waiting for the other company.</p>` : ''}
-  <ul class="ideas">${cards}</ul></main>`;
+  const total = ideas.reduce((n, i) => n + (Number(i.votes) || 0), 0) || 1;
+  const tally = `<aside class="card tally"><h2>Live vote count</h2><ol>${ideas.map((i, n) => `<li><span class="n">${n + 1}</span><span class="track"><i style="width:${Math.round(100 * (Number(i.votes) || 0) / total)}%"></i></span><span class="v">${esc(i.votes)}</span></li>`).join('')}</ol></aside>`;
+  const pickedCard = picked
+    ? `<p class="notice">Your company picked ${esc(ideas.find((i) => i.id === picked)?.name ?? picked)}. Waiting for the other company.</p>`
+    : '';
+  return `${header(v)}<main class="ideation"><div class="title2"><h1>Base idea selection</h1><p class="desc">Vote for one idea. The CEO makes the final pick.</p></div><h2>${esc(v.problem.title)}</h2>
+  ${pickedCard}
+  <div class="idea-grid"><ul class="ideas">${cards}</ul>${tally}</div></main>`;
 }
 
 function catalogItem(it, locked = false, sale = false) {
@@ -109,6 +138,8 @@ const HINTS = {
   COO: 'Request operations items for the CFO to approve',
 };
 
+const TITLES = { CTO: 'Product workshop', CMO: 'Brand studio', COO: 'Risk & protection workshop', CFO: 'Treasury & approval queue', CEO: 'Command center' };
+
 export function shopBody(v) {
   const sh = v.shop || {};
   const catalog = Array.isArray(sh.catalog) ? sh.catalog : [];
@@ -125,8 +156,10 @@ export function shopBody(v) {
   const mineRows = Array.isArray(sh.mine) ? sh.mine : [];
   const mine = mineRows.length ? `<section class="card"><h3>My requests</h3><ul>${mineRows.map((r) => `<li>${esc(r.label)}: ${esc(r.status)}</li>`).join('')}</ul></section>` : '';
   const closed = v.clock.phase === 'competition' && v.shop && sh.open === false ? '<p class="shop-closed" role="status">Shop closed: no new requests. Open requests can still be decided.</p>' : '';
-  return `<main>
-  <p class="hint">${esc(HINTS[v.me.role] ?? '')}</p>
+  return `<main class="shop">
+  <div class="ws-top"><div class="title2"><h1>${esc(TITLES[v.me.role] ?? 'Shop')}</h1>
+  <p class="hint">${esc(HINTS[v.me.role] ?? '')}</p></div>
+  <section class="budget"><span class="lab">Team budget</span><b class="amt">${icon('i-coins')}${esc(v.wallet)}</b></section></div>
   ${saleBadge}${lock ? `<p class="locked" role="status">${esc(lock)}</p>` : ''}${closed}
   ${v.idea ? `<p class="product">Product: ${esc(v.idea.name)}</p>` : ''}
   ${awaitingList(v)}${queueList(v)}${mine}${lists}
@@ -217,23 +250,40 @@ export function renderCompetition(v) {
 
 function summary(v) {
   const s = v.summary;
-  return `${header(v)}<main><section class="card"><h2>${esc(s.idea?.name ?? 'No idea picked')}</h2>
+  return `${header(v)}<main class="summary"><section class="card receipt"><h2>Your product</h2><p class="product-name">${esc(s.idea?.name ?? 'No idea picked')}</p>
   ${s.owned.length ? `<ul class="owned">${s.owned.map((o) => `<li>${esc(o.label)} <span>${esc(o.charged)}</span></li>`).join('')}</ul>` : '<p class="muted">Nothing was bought.</p>'}
   <p class="big">${esc(plural(s.wallet, 'coin'))} left</p></section></main>`;
 }
 
-const THANKS = '<main><section class="card"><h2>Thank you for playing</h2></section></main>';
+const THANKS = '<main class="thanks"><section class="card"><h2>Thank you for playing</h2><p>The game is over. Please stay in your seat.</p><p>The organizer will show the graphs in a moment.</p></section></main>';
+
+const RESULTS_TITLE = '<div class="title2"><h1>Final results</h1><p class="desc">How both companies played. Compare the graphs and talk about what you would do differently.</p></div>';
 
 // The SVG strings come from the server and are built from numbers and fixed labels only
 // (no player text), so they are inserted as markup.
 function graphsHtml(g) {
-  return `<main class="results"><section class="card">${g.companyVsCompany}</section><section class="card">${g.coinDifference}</section><section class="card">${g.roleBars}</section></main>`;
+  return `<main class="results">${RESULTS_TITLE}<section class="card">${g.companyVsCompany}</section><section class="card">${g.coinDifference}</section><section class="card">${g.roleBars}</section></main>`;
+}
+
+function renderHome(v) {
+  const me = v.me || {};
+  const seat = roleOf(me.role) && companyOf(me.company) ? `You are the ${esc(me.role)} of Company ${esc(me.company)}.` : 'The organizer will give you a company and a role.';
+  return `<div class="screen"${companyAttr(me.company)}><main class="home">
+  <section class="hero"><h1>Startup <span>Showdown</span></h1><p class="flow">Ideas &rarr; Teams &rarr; Solutions &rarr; Impact</p></section>
+  <section class="card tile main"><h2>Hello ${esc(me.name)}</h2><p><span class="status-dot"></span>Waiting for the organizer to start the game.</p><p>${seat}</p></section>
+  <section class="card"><h2>How to play</h2><ol class="hsteps"><li>1. Briefing: meet your team and your role</li><li>2. Ideation: vote, then the CEO picks the idea</li><li>3. Shop: spend 1,000 shared coins together</li><li>4. Competition: 16 minutes against another company</li><li>5. Graphs: see how both companies played</li></ol></section>
+  <section class="card tile locked"><h2>${icon('i-lock')} My graphs <span class="sr-only">(locked)</span></h2><p>Opens after the organizer shows the results.</p></section>
+</main></div>`;
 }
 
 export function renderScreen(v) {
-  if (v.screen === 'lobby') return `<main><section class="card"><h2>Hello ${esc(v.me.name)}</h2><p>Waiting for the organizer to start the game.</p></section></main>`;
-  if (v.screen === 'graphs') return v.graphs ? `<main><h2>Game ${esc(v.gameId)}</h2></main>${graphsHtml(v.graphs)}` : THANKS;
+  if (v.screen === 'lobby') return renderHome(v);
+  if (v.screen === 'graphs') return `<div class="screen"${companyAttr(v.me && v.me.company)} data-phase="ended">${v.graphs ? `<main><h2>Game ${esc(v.gameId)}</h2></main>${graphsHtml(v.graphs)}` : THANKS}</div>`;
   if (v.screen !== 'game') return '<main><section class="card"><p>Something went wrong. Please reload.</p></section></main>';
+  return `<div class="screen"${companyAttr(v.me && v.me.company)} data-phase="${phaseOf(v.clock && v.clock.phase)}">${gameScreen(v)}</div>`;
+}
+
+function gameScreen(v) {
   switch (v.clock.phase) {
     case 'briefing': return briefing(v);
     case 'ideation': return ideation(v);

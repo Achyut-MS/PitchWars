@@ -1,0 +1,173 @@
+/* Player screens. Built from ui-drafts/play.css and draft.css, keyed to the class names the render functions emit. */
+
+/* ---------- shared page pieces ---------- */
+.screen { position: relative; min-height: 100vh; }
+.screen::before { content: ""; position: absolute; top: 0; right: 0; width: 200px; height: 220px; z-index: -1; pointer-events: none;
+  background: radial-gradient(circle at 2px 2px, var(--team) 1.6px, transparent 1.9px) 0 0 / 7px 7px;
+  -webkit-mask-image: linear-gradient(to bottom left, black 20%, transparent 80%); mask-image: linear-gradient(to bottom left, black 20%, transparent 80%); }
+.title2 { margin: 6px 0 16px; }
+.title2 h1 { display: inline-block; margin: 0; background: var(--team); color: var(--team-ink); border: var(--line) solid var(--ink); border-bottom: 0;
+  padding: 8px 48px 8px 18px; font: 400 clamp(1.25rem, 3.4vw, 2.1rem)/1.05 var(--block); clip-path: polygon(0 0, calc(100% - 26px) 0, 100% 100%, 0 100%); }
+.title2 .desc, .title2 .hint { margin: -3px 0 0; border: var(--line) solid var(--ink); background: var(--paper); padding: 10px 16px; border-radius: 0 0 12px 12px;
+  box-shadow: 4px 4px 0 var(--ink); font: 400 .95rem/1.5 var(--mono); }
+
+/* ---------- small phones ---------- */
+@media (max-width: 420px) {
+  main { padding: 10px 12px 40px; }
+  :where(section, details, form, aside, article, div).card { padding: 14px 12px; }
+  .card > h2:first-child, .card > h3:first-child, details.card > summary { margin: -14px 0 12px -12px; }
+}
+
+/* ---------- home / waiting (draft: home.html) ---------- */
+main.home { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: 18px; align-items: start; }
+main.home > * + * { margin-top: 0; }
+.hero { grid-column: 1 / -1; border: var(--line) solid var(--ink); box-shadow: 4px 4px 0 var(--ink); padding: clamp(14px, 3vw, 32px); position: relative; overflow: hidden; }
+.hero::after { content: ""; position: absolute; right: -40px; bottom: -40px; width: 240px; height: 240px; border-radius: 50%; background: var(--team); border: var(--line) solid var(--ink); z-index: -1; }
+.hero { isolation: isolate; }
+@media (max-width: 640px) { .hero::after { width: 150px; height: 150px; right: -70px; bottom: -80px; } }
+.hero h1 { margin: 0; font: 400 clamp(2rem, 6vw, 4.4rem)/.95 var(--block); }
+.hero h1 span { display: block; color: var(--team); -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; }
+.hero .flow { margin: 12px 0 0; font-size: .9rem; text-transform: uppercase; }
+.tile.main::after { background: var(--team-soft); }
+.tile.locked { opacity: .7; }
+.status-dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: var(--good); border: 2px solid var(--ink); margin-right: 8px; animation: pulse 1.4s infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+.hsteps { display: grid; gap: 8px; padding: 0; list-style: none; font-size: .92rem; }
+@media (max-width: 900px) { main.home { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- header strip extras (drafts: the .hud of every player draft) ---------- */
+header.bar .roles { display: inline-flex; gap: 6px; padding-right: 12px; margin-right: 6px; border-right: var(--line) solid var(--ink); }
+header.bar .roles > span { width: 34px; height: 34px; border: var(--line) solid var(--ink); border-radius: 6px; display: grid; place-items: center; background: var(--paper); box-shadow: 2px 2px 0 var(--ink); }
+header.bar .roles > span.on { background: var(--team); color: var(--team-ink); }
+header.bar .roles .i { width: 20px; height: 20px; vertical-align: 0; }
+@media (max-width: 900px) { header.bar .roles { display: none; } }
+
+/* ---------- briefing (draft: briefing.html) ---------- */
+main.brief { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 18px; align-items: start; max-width: 1280px; }
+main.brief > * + * { margin-top: 0; }
+main.brief .problem-card { grid-column: 2; grid-row: 1 / span 2; }
+.company-card { display: flex; align-items: center; gap: 16px; }
+.company-card .mark { width: 96px; height: 84px; color: var(--ink); }
+.company-card .words { display: block; font: 400 1rem/1 var(--mono); letter-spacing: .28em; text-transform: uppercase; }
+.company-card .name { display: block; font: 400 clamp(1.8rem, 4vw, 2.8rem)/1 var(--slab); color: var(--team); -webkit-text-stroke: 2.5px var(--ink); paint-order: stroke fill; text-transform: uppercase; }
+.role-card .head2 { display: flex; align-items: center; gap: 14px; }
+.role-card .chip { width: 72px; height: 72px; }
+.role-card .code { font: 400 clamp(2.6rem, 6vw, 4.4rem)/1 var(--slab); color: var(--team); -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; text-shadow: 4px 4px 0 var(--ink); }
+.role-card .full { margin: 6px 0 10px; padding-bottom: 10px; border-bottom: 2px solid var(--ink); font-size: .85rem; letter-spacing: .14em; text-transform: uppercase; }
+.problem-card h3 { font-size: clamp(1.3rem, 3vw, 2rem); }
+.problem-card p { font-size: clamp(1rem, 1.6vw, 1.2rem); }
+@media (max-width: 900px) { main.brief { grid-template-columns: minmax(0, 1fr); } main.brief .problem-card { grid-column: auto; grid-row: auto; } }
+
+/* ---------- ideation (draft: ideation.html) ---------- */
+main.ideation { max-width: 1400px; }
+.idea-grid { display: grid; grid-template-columns: minmax(0, 1fr) clamp(260px, 26vw, 380px); gap: 18px; align-items: start; }
+ul.ideas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; counter-reset: idea; }
+li.idea { counter-increment: idea; position: relative; display: flex; flex-direction: column; min-width: 0; border: var(--line) solid var(--ink); border-radius: 12px; background: var(--paper);
+  box-shadow: 5px 5px 0 var(--ink); padding: 12px 14px; text-align: center; }
+li.idea::before { content: counter(idea); position: absolute; top: 8px; left: 8px; width: 36px; height: 36px; background: var(--team); color: var(--team-ink); border: var(--line) solid var(--ink); border-radius: 6px; font: 400 1.3rem/30px var(--block); }
+li.idea .pic { display: grid; place-items: center; height: 96px; margin: 0 6%; -webkit-mask-image: radial-gradient(ellipse at center, black 35%, transparent 75%); mask-image: radial-gradient(ellipse at center, black 35%, transparent 75%); }
+li.idea .pic .i { width: 64px; height: 64px; color: var(--ink); }
+li.idea h3 { margin: 4px 0; } li.idea h3 small { display: block; margin-top: 6px; font: 400 .78rem var(--mono); text-transform: uppercase; }
+li.idea p { font-size: .9rem; flex: 1; } li.idea .votes { flex: 0; font-weight: 700; }
+li.idea.mine { outline: 5px solid var(--team); outline-offset: 2px; }
+li.idea.chosen { background: var(--team-soft); }
+.tally ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.tally li { display: grid; grid-template-columns: 40px minmax(0, 1fr) 28px; gap: 10px; align-items: center; }
+.tally .n { background: var(--team); color: var(--team-ink); border: var(--line) solid var(--ink); border-radius: 6px; font: 400 1.2rem/32px var(--block); text-align: center; }
+.tally .track { height: 22px; border: var(--line) solid var(--ink); border-radius: 12px; background: var(--track); overflow: hidden; }
+.tally .track i { display: block; height: 100%; background: var(--team); }
+.notice { border: var(--line) solid var(--ink); background: var(--team-soft); padding: 10px 14px; font-weight: 700; box-shadow: var(--shadow-sm) var(--shadow-sm) 0 var(--ink); }
+@media (max-width: 1180px) { .idea-grid { grid-template-columns: minmax(0, 1fr); } ul.ideas { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { ul.ideas { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- shop (drafts: workshop-cto, studio-cmo, workshop-coo, treasury-cfo, command-ceo) ---------- */
+main.shop { max-width: 1400px; }
+.ws-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 280px); gap: 18px; align-items: stretch; }
+.ws-top .title2 { margin: 0; }
+.budget { border: var(--line) solid var(--ink); background: var(--paper); box-shadow: 5px 5px 0 var(--ink); border-radius: 8px; padding: 10px 14px; display: grid; gap: 6px; align-content: center; }
+.budget .lab { font: 400 .95rem var(--block); text-transform: uppercase; text-align: center; }
+.budget .amt { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--team); color: var(--team-ink); border: var(--line) solid var(--ink); border-radius: 6px; padding: 8px 14px; font: 700 clamp(1.6rem, 3vw, 2.2rem)/1 var(--mono); }
+.product { display: inline-block; border: var(--line) solid var(--ink); background: var(--team-soft); padding: 6px 12px; font-weight: 700; }
+details.card > ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); gap: 12px; }
+li.item { display: flex; flex-direction: column; gap: 6px; border: var(--line) solid var(--ink); border-radius: 8px; background: var(--paper); padding: 10px 12px; box-shadow: 3px 3px 0 var(--ink); min-width: 0; }
+li.item .name { font: 700 1rem/1.2 var(--mono); }
+li.item .cost:empty { display: none; }
+li.item .cost { font: 700 1.1rem var(--mono); } li.item .cost::after { content: " coins"; font-weight: 400; font-size: .85rem; }
+li.item .cost .list { margin-left: 6px; color: var(--muted); font-weight: 400; }
+li.item em { align-self: flex-start; font: 400 .75rem/1 var(--mono); font-style: normal; background: var(--ink); color: var(--paper); padding: 4px 8px; border-radius: 3px; }
+li.item.owned { background: var(--team-soft); }
+li.item.owned em { background: var(--team); color: var(--team-ink); }
+li.item button { width: 100%; margin: 0; }
+li.item button:not(.primary) { background: var(--team); color: var(--team-ink); font: 400 .95rem/1.1 var(--block); text-transform: uppercase; }
+li.req { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; border: var(--line) solid var(--ink); border-radius: 8px; background: var(--paper); padding: 8px 10px; margin-bottom: 8px; }
+li.req.head { outline: 4px solid var(--team); outline-offset: 1px; background: var(--team-soft); }
+li.req small { font-size: .8rem; }
+li.req button { margin-right: 8px; }
+ul.owned li { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px dashed var(--ink); padding: 6px 0; }
+ul.owned li span { font-weight: 700; white-space: nowrap; }
+@media (max-width: 760px) { .ws-top { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- summary card (no draft: the receipt in the same style) ---------- */
+main.summary { max-width: 640px; }
+.receipt .product-name { font: 400 clamp(1.6rem, 6vw, 2.6rem)/1.05 var(--slab); color: var(--team); -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; text-transform: uppercase; }
+.receipt .big { display: inline-block; background: var(--team); color: var(--team-ink); border: var(--line) solid var(--ink); padding: 8px 14px; box-shadow: 4px 4px 0 var(--ink); }
+
+/* ---------- competition (Plan 3 Task 11 markup: .banner, .notice, aside.hint, section.competition, .card.rates with #sales-meter, #attack-deck, .card.shield) ---------- */
+.banner { position: sticky; top: 64px; z-index: 9; margin: 0; padding: 10px 16px; text-align: center; font: 400 1.05rem/1.2 var(--block); text-transform: uppercase;
+  background: var(--team); color: var(--team-ink); border-bottom: var(--line) solid var(--ink); }
+.banner[class~="2min"] { background: var(--ink); color: var(--team-on-ink); }
+.banner[class~="30s"], .banner.last10 { background: var(--ink); color: var(--alarm); }
+header.bar ~ p.notice { margin: 0; border-width: 0 0 var(--line); box-shadow: none; }
+section.competition { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 18px; align-items: start; padding: 12px 16px 0; max-width: 1180px; margin: 0 auto; }
+section.competition > .card { margin: 0; }
+aside.hint { grid-column: 1 / -1; position: sticky; top: 76px; z-index: 5; margin: 0; max-width: 520px; border: var(--line) solid var(--ink); background: var(--team-soft); box-shadow: 5px 5px 0 var(--ink); border-radius: 0 12px 12px 12px; }
+aside.hint details { padding: 0 14px 10px; }
+aside.hint summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; gap: 8px; font: 400 1rem var(--block); text-transform: uppercase; }
+aside.hint p { margin: 0; }
+.rates .meter { height: 24px; border: var(--line) solid var(--ink); border-radius: 12px; background: var(--track); overflow: hidden; margin: 4px 0 8px; }
+.rates .meter .fill { height: 100%; background: var(--team); border-right: var(--line) solid var(--ink); transition: width .4s; }
+.rates .my-rate { font-size: 1.3rem; }
+.rates .level { display: inline-block; margin-left: 6px; background: var(--ink); color: var(--paper); padding: 2px 8px; border-radius: 3px; }
+.rates ul { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 8px 0; }
+.rates ul li { border: var(--line) solid var(--ink); border-radius: 8px; padding: 6px 8px; text-align: center; font-weight: 700; }
+.rates ul li b { display: block; font-size: 1.4rem; }
+.rates .big { background: var(--ink); color: var(--team-on-ink); padding: 8px 14px; display: inline-block; }
+:where(section).card.attacks::after { background: var(--ink); }
+.card.attacks > h3:first-child { background: var(--team); color: var(--team-ink); }
+.card.attacks, .card.attacks .muted, .card.attacks h4 { color: var(--paper); }
+.card.attacks .deck { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); gap: 10px; }
+.card.attacks button.attack-btn { width: 100%; margin: 0; min-height: 64px; background: var(--paper); color: var(--ink); border-color: var(--paper); box-shadow: 4px 4px 0 var(--team); text-align: left; }
+.card.attacks button.attack-btn.armed { outline: 4px solid var(--alarm); outline-offset: 2px; }
+.card.attacks button.attack-btn[disabled] { background: var(--rail); color: var(--stone); box-shadow: none; }
+.card.attacks .launches li { border-bottom: 1px dashed var(--stone); padding: 4px 0; }
+.card.attacks .launch.blocked { color: var(--stone); }
+.card.shield > h3:first-child { display: flex; align-items: center; gap: 8px; }
+p.sale-badge, p.locked, p.shop-closed { display: inline-block; margin: 0 0 12px; padding: 8px 14px; border: var(--line) solid var(--ink); font-weight: 700; box-shadow: var(--shadow-sm) var(--shadow-sm) 0 var(--ink); }
+p.sale-badge { background: var(--team); color: var(--team-ink); }
+p.locked, p.shop-closed { background: var(--ink); color: var(--paper); }
+
+/* ---------- CFO puzzle panel (Plan 4 Task 6 markup: .card.puzzle, #puzzle-slot, table.puzzle-grid, .cards [data-card]) ---------- */
+.puzzle #puzzle-slot { overflow-x: auto; margin: 8px 0 12px; }
+.puzzle-stats { font-size: .95rem; font-weight: 700; margin: 4px 0 8px; }
+.puzzle-note { font-size: .9rem; }
+button.skip { background: var(--stone); color: var(--ink); }
+.price { font-weight: 700; }
+table.puzzle-grid { display: table; width: auto; margin: 0 auto; border: var(--line-thick) solid var(--ink); border-collapse: collapse; background: var(--paper); }
+.puzzle-grid td, .puzzle-grid th { width: 44px; height: 44px; padding: 0; text-align: center; font: 700 1.1rem var(--mono); border: 1px solid var(--ink); cursor: pointer; user-select: none; }
+.puzzle-grid th { width: 32px; background: var(--field); color: var(--ink); cursor: default; }
+.puzzle-grid td.on { background: var(--team); color: var(--team-ink); }
+.puzzle-grid td.bt { border-top: var(--line-thick) solid var(--ink); } .puzzle-grid td.bb { border-bottom: var(--line-thick) solid var(--ink); }
+.puzzle-grid td.bl { border-left: var(--line-thick) solid var(--ink); } .puzzle-grid td.br { border-right: var(--line-thick) solid var(--ink); }
+.puzzle-grid .reg-0 { background: var(--paper); } .puzzle-grid .reg-1 { background: var(--track); } .puzzle-grid .reg-2 { background: var(--tint-a); } .puzzle-grid .reg-3 { background: var(--tint-b); }
+.puzzle-grid .reg-4 { background: var(--locked); } .puzzle-grid .reg-5 { background: var(--field); } .puzzle-grid .reg-6 { background: var(--stone); } .puzzle-grid .reg-7 { background: var(--white); }
+.puzzle .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+.puzzle .cards [data-card] { min-height: 64px; margin: 0; font-size: 1.3rem; letter-spacing: .1em; }
+.puzzle .cards [data-card].picked { outline: 4px solid var(--team); outline-offset: 2px; }
+.puzzle .cards [data-card].group { background: var(--team-soft); }
+
+/* ---------- results (draft: results.html; Plan 5 markup: main.results, the thank-you card) ---------- */
+.thanks, .screen[data-phase="ended"] main { max-width: 760px; text-align: center; }
+main.results { display: grid; gap: 18px; max-width: 1500px; }
+main.results > * + * { margin-top: 0; }
+main.results .card svg { width: 100%; height: auto; display: block; }
+@media (min-width: 1000px) { main.results { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
