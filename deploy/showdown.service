@@ -1,18 +1,19 @@
+# Template: deploy/install.sh fills in the @...@ values and installs it.
 [Unit]
 Description=Startup Showdown game server
-After=network.target
+After=network-online.target NetworkManager.service
+Wants=network-online.target
 StartLimitIntervalSec=0
 
 [Service]
-WorkingDirectory=/home/pi/showdown
-Environment=ORGANIZER_PASSWORD=change-me-before-the-event
-Environment=PORT=80
-Environment=DB_FILE=/home/pi/showdown/data/showdown.db
-ExecStart=/usr/bin/node src/index.js
+User=@SERVICE_USER@
+WorkingDirectory=@INSTALL_DIR@
+EnvironmentFile=@ENV_FILE@
+ExecStart=@NODE_BIN@ src/index.js
 Restart=always
 RestartSec=1
 AmbientCapabilities=CAP_NET_BIND_SERVICE
-User=pi
+NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target
