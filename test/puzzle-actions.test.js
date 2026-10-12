@@ -170,3 +170,21 @@ test('if no puzzle can be generated the sender gets a friendly try-again error',
   assert.equal((await ask(cfo, { type: 'puzzle_next' })).type, 'state');
   await done(env.app, env.o, env.a, env.b, cfo);
 });
+
+test('a submit or skip with no open puzzle replies quietly, never an error, and charges nothing', async () => {
+  const env = await competing();
+  const cfo = await env.login('S2');
+  const wallet = () => env.db.prepare("SELECT wallet FROM company_state WHERE company='A'").get().wallet;
+  const w = wallet();
+  const two = nextN(cfo, 2);
+  cfo.send(JSON.stringify({ type: 'puzzle_submit', answer: [1] }));
+  const got = await two;
+  assert.deepEqual(got.find((m) => m.type === 'puzzle_result'), { type: 'puzzle_result', ok: false, coins: 0, closed: true });
+  assert.ok(got.find((m) => m.type === 'state'));
+  assert.equal(got.some((m) => m.type === 'error'), false);
+  const r = await ask(cfo, { type: 'puzzle_skip' });
+  assert.equal(r.type, 'state');
+  assert.equal(wallet(), w);
+  assert.equal(env.db.prepare("SELECT COUNT(*) n FROM events WHERE type IN ('puzzle_wrong','puzzle_skipped')").get().n, 0);
+  await done(env.app, env.o, env.a, env.b, cfo);
+});

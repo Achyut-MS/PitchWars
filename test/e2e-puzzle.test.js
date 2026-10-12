@@ -57,6 +57,8 @@ test('CFO plays puzzles over the real protocol: paid once, two free skips then a
     await sleep(200);
     assert.equal(wallet(), w0 + 20);
     assert.equal(cfo.all.filter((m) => m.type === 'puzzle_result' && m.ok).length, 1);
+    assert.equal(cfo.all.filter((m) => m.type === 'error').length, 0);
+    assert.equal(cfo.all.filter((m) => m.type === 'puzzle_result' && m.closed).length, 1);
     assert.equal(cfo.all.find((m) => m.type === 'puzzle_result').coins, 20);
 
     const w1 = wallet();

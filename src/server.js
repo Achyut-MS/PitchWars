@@ -19,7 +19,7 @@ import { castVote, pickIdea, endIdeationNow } from './ideation.js';
 import { requestItem, recommendItem, ceoDecide, cfoDecide } from './shop.js';
 import { skipToNextPhase } from './skip.js';
 import { viewFor, organizerView } from './views.js';
-import { startPuzzle, submitPuzzle, skipPuzzle } from './minigame.js';
+import { startPuzzle, submitPuzzle, skipPuzzle, NoPuzzleOpenError } from './minigame.js';
 
 const MAX_FAILS = 5;
 const WINDOW_MS = 60_000;
@@ -175,8 +175,17 @@ export function createApp({
       try { row = startPuzzle(ctx, g, id); } catch (e) { if (e && e.constructor === Error && /^(only the CFO|puzzles are only|not in this game)/.test(e.message)) throw e; throw new Error(TRY_AGAIN); }
       if (!row) throw new Error(TRY_AGAIN);
     },
-    puzzle_submit: (id, m, g) => submitPuzzle(ctx, g, id, answerOf(m.answer)),
-    puzzle_skip: (id, m, g) => { skipPuzzle(ctx, g, id); },
+    // A double tap finds no open puzzle: answer quietly instead of showing an error.
+    puzzle_submit: (id, m, g) => {
+      const answer = answerOf(m.answer);
+      try { return submitPuzzle(ctx, g, id, answer); } catch (e) {
+        if (e instanceof NoPuzzleOpenError) return { ok: false, coins: 0, closed: true };
+        throw e;
+      }
+    },
+    puzzle_skip: (id, m, g) => {
+      try { skipPuzzle(ctx, g, id); } catch (e) { if (!(e instanceof NoPuzzleOpenError)) throw e; }
+    },
   };
 
   // Plain Errors thrown by the game rules carry player-facing text; anything else
@@ -261,7 +270,7 @@ export function createApp({
         if (!p || p.status !== 'in_game' || p.game_id !== game.id) throw new Error('you are not in this game');
         const r = participantActions[msg.type](s.admissionId, msg, game);
         // Direct reply to the attacker only: never anything about the victim's state.
-        if (msg.type === 'puzzle_submit') send(ws, { type: 'puzzle_result', ok: !!(r && r.ok), coins: r ? r.coins : 0 });
+        if (msg.type === 'puzzle_submit') send(ws, { type: 'puzzle_result', ok: !!(r && r.ok), coins: r ? r.coins : 0, ...(r && r.closed ? { closed: true } : {}) });
         if (msg.type === 'attack') send(ws, { type: 'attack_result', blocked: !!(r && r.blocked), endsAt: r && r.endsAt });
       } else {
         return send(ws, { type: 'error', error: 'bad_message' });
