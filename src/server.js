@@ -277,13 +277,22 @@ export function createApp({
       logAct('inject', { company, coins }, g.id);
     },
   };
+  // Players name a request by its per-company sequence number; it is resolved inside the sender's own company.
+  const requestIdOf = (game, admissionId, seq) => {
+    const p = db.prepare('SELECT company FROM participants WHERE admission_id = ?').get(admissionId);
+    const row = p && seq >= 1
+      ? db.prepare('SELECT id FROM requests WHERE game_id=? AND company=? ORDER BY id LIMIT 1 OFFSET ?').get(game.id, p.company, seq - 1)
+      : null;
+    if (!row) throw new Error('no such request');
+    return row.id;
+  };
   const participantActions = {
     vote: (id, m, g) => castVote(ctx, g, id, str(m.ideaId)),
     pick: (id, m, g) => pickIdea(ctx, g, id, str(m.ideaId)),
     request: (id, m, g) => requestItem(ctx, g, id, str(m.itemId), optStr(m.choice)),
     recommend: (id, m, g) => recommendItem(ctx, g, id, str(m.itemId), optStr(m.choice)),
-    ceo_decide: (id, m, g) => ceoDecide(ctx, g, id, int(m.requestId), bool(m.approve)),
-    cfo_decide: (id, m, g) => cfoDecide(ctx, g, id, int(m.requestId), bool(m.approve)),
+    ceo_decide: (id, m, g) => ceoDecide(ctx, g, id, requestIdOf(g, id, int(m.requestId)), bool(m.approve)),
+    cfo_decide: (id, m, g) => cfoDecide(ctx, g, id, requestIdOf(g, id, int(m.requestId)), bool(m.approve)),
     attack: (id, m, g) => launchAttack(ctx, g, id, str(m.key)),
     puzzle_next: (id, m, g) => {
       let row;

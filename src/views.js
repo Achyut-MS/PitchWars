@@ -31,11 +31,16 @@ function ownedList(ctx, game, company, idea) {
   }));
 }
 
-function requestView(ctx, game, idea, r, headId) {
+// Players see per-company sequence numbers (1, 2, 3 ...), never the global row id,
+// so gaps cannot reveal how much the rival is doing.
+const requestSeqs = (db, gameId, company) =>
+  new Map(prep(db, 'SELECT id FROM requests WHERE game_id=? AND company=? ORDER BY id').all(gameId, company).map((r, i) => [r.id, i + 1]));
+
+function requestView(ctx, game, idea, r, headId, seqs) {
   const item = ctx.data.item(r.item_id);
   const by = prep(ctx.db, 'SELECT name FROM participants WHERE admission_id=?').get(r.requested_by);
   return {
-    id: r.id, itemId: r.item_id, label: itemLabel(item, idea, r.choice), price: chargeFor(ctx, game, r.company, item),
+    id: seqs.get(r.id), itemId: r.item_id, label: itemLabel(item, idea, r.choice), price: chargeFor(ctx, game, r.company, item),
     by: by ? by.name : r.requested_by, recommended: !!r.recommended, head: r.id === headId,
   };
 }
@@ -50,8 +55,9 @@ function companyShop(ctx, game, company, idea, phase, cache) {
   const pendingRows = prep(db, "SELECT * FROM requests WHERE game_id=? AND company=? AND status='pending' ORDER BY id").all(game.id, company);
   const waitingRows = prep(db, "SELECT * FROM requests WHERE game_id=? AND company=? AND status='awaiting_ceo' ORDER BY id").all(game.id, company);
   const headId = pendingRows.length ? pendingRows[0].id : null;
-  const queue = pendingRows.map((r) => requestView(ctx, game, idea, r, headId));
-  const awaitingCeo = waitingRows.map((r) => requestView(ctx, game, idea, r, null));
+  const seqs = requestSeqs(db, game.id, company);
+  const queue = pendingRows.map((r) => requestView(ctx, game, idea, r, headId, seqs));
+  const awaitingCeo = waitingRows.map((r) => requestView(ctx, game, idea, r, null, seqs));
   let catalog = [];
   if (idea) {
     const owned = new Map(prep(db, 'SELECT family, item_id FROM owned WHERE game_id=? AND company=?').all(game.id, company).map((o) => [o.family, o.item_id]));
@@ -93,9 +99,10 @@ function shopView(ctx, game, p, idea, phase, cache) {
     canRequest: open && ADDERS.includes(p.role) && c.role === p.role && c.state === 'available',
     canRecommend: open && p.role === 'CEO' && c.state === 'available',
   }));
+  const seqs = requestSeqs(ctx.db, game.id, p.company);
   const mine = prep(ctx.db, 'SELECT * FROM requests WHERE game_id=? AND company=? AND requested_by=? ORDER BY id DESC LIMIT 8')
     .all(game.id, p.company, p.admission_id)
-    .map((r) => ({ id: r.id, itemId: r.item_id, label: itemLabel(ctx.data.item(r.item_id), idea, r.choice), status: r.status }));
+    .map((r) => ({ id: seqs.get(r.id), itemId: r.item_id, label: itemLabel(ctx.data.item(r.item_id), idea, r.choice), status: r.status }));
   const shop = { open, catalog, mine, locked: null, sale: null };
   if (phase === 'competition') {
     const kind = p.role === 'CTO' ? 'cto_lock' : p.role === 'CFO' ? 'cfo_lock' : null;
@@ -159,7 +166,7 @@ function competitionView(ctx, game, p, clock, cache) {
     const pub = row ? publicPuzzle(ctx.db, row) : null;
     const lvl = row ? row.level : levelFor(solved);
     puzzleBlock = {
-      puzzle: pub && { ...pub, reward: pay(row.level) },
+      puzzle: pub && { ...pub, id: prep(ctx.db, 'SELECT COUNT(*) AS n FROM puzzle_sessions WHERE game_id=? AND company=? AND id<=?').get(game.id, p.company, row.id).n, reward: pay(row.level) },
       puzzlesDone: { solved, skipped },
       puzzlePanel: { level: lvl, solved, skipsFreeLeft: Math.max(0, FREE_SKIPS - skipped), nextReward: pay(lvl), miniCoins: companyState(ctx.db, game.id, p.company)?.mini_coins ?? 0 },
     };

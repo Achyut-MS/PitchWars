@@ -272,3 +272,62 @@ test('a second organizer connection keeps its own token valid', async () => {
   assert.equal(await getStatus(url, `/export/event.xlsx?token=${tb}`), 200);
   await done(app, a, b);
 });
+
+// ---- 9. per-company sequence numbers instead of global ids ----
+import { makeRunning, atSec } from './helpers.js';
+import { pickIdea } from '../src/ideation.js';
+import { requestItem } from '../src/shop.js';
+import { startPuzzle } from '../src/minigame.js';
+import { viewFor, organizerView } from '../src/views.js';
+
+function shopHarness() {
+  const h = makeRunning(); atSec(h, 200);
+  pickIdea(h.ctx, h.game(), h.seat.A.CEO, 'H1');
+  pickIdea(h.ctx, h.game(), h.seat.B.CEO, 'S1');
+  atSec(h, 400);
+  return h;
+}
+
+test('request ids in player views are per-company sequence numbers, never the global id', () => {
+  const h = shopHarness();
+  const b1 = requestItem(h.ctx, h.game(), h.seat.B.CMO, 'M01-N'); // global 1
+  const a1 = requestItem(h.ctx, h.game(), h.seat.A.CMO, 'M01-N'); // global 2
+  const a2 = requestItem(h.ctx, h.game(), h.seat.A.CMO, 'M04-S'); // global 3
+  assert.deepEqual([b1, a1, a2], [1, 2, 3]);
+  const cfoA = viewFor(h.ctx, h.seat.A.CFO).shop.queue;
+  assert.deepEqual(cfoA.map((r) => r.id), [1, 2]);
+  const cfoB = viewFor(h.ctx, h.seat.B.CFO).shop.queue;
+  assert.deepEqual(cfoB.map((r) => r.id), [1]);
+  assert.deepEqual(viewFor(h.ctx, h.seat.A.CMO).shop.mine.map((r) => r.id).sort(), [1, 2]);
+  assert.deepEqual(viewFor(h.ctx, h.seat.B.CMO).shop.mine.map((r) => r.id), [1]);
+});
+
+test('a decide message names the sender-company sequence number and cannot reach the rival', async () => {
+  const h = shopHarness();
+  requestItem(h.ctx, h.game(), h.seat.B.CMO, 'M01-N'); // global 1, company B
+  requestItem(h.ctx, h.game(), h.seat.A.CMO, 'M01-N'); // global 2, company A = sequence 1
+  const app = createApp({ db: h.db, organizerPassword: 'pw-long-enough', now: h.ctx.now, data, staticRoot: null,
+    exportDir: mkdtempSync(join(tmpdir(), 'ex-')), backupDir: mkdtempSync(join(tmpdir(), 'bk-')) });
+  await new Promise((r) => app.server.listen(0, r));
+  const url = `ws://127.0.0.1:${app.server.address().port}`;
+  const cfo = await connect(url);
+  await ask(cfo, { type: 'login', admissionId: h.seat.A.CFO });
+  assert.equal((await ask(cfo, { type: 'cfo_decide', requestId: 2, approve: true })).error, 'no such request'); // A has only sequence 1
+  assert.equal((await ask(cfo, { type: 'cfo_decide', requestId: 0, approve: true })).error, 'no such request');
+  assert.equal((await ask(cfo, { type: 'cfo_decide', requestId: 1, approve: true })).type, 'state');
+  const rows = h.db.prepare('SELECT id, company, status FROM requests ORDER BY id').all();
+  assert.deepEqual(rows.map((r) => [r.id, r.company]), [[1, 'B'], [2, 'A']]);
+  assert.equal(rows[0].status, 'pending'); // the rival's request is untouched
+  assert.notEqual(rows[1].status, 'pending');
+  await done(app, cfo);
+});
+
+test('puzzle ids in the CFO view are per-company sequence numbers', () => {
+  const h = shopHarness();
+  atSec(h, 800);
+  const g = h.game();
+  startPuzzle(h.ctx, g, h.seat.B.CFO); // global 1
+  startPuzzle(h.ctx, g, h.seat.A.CFO); // global 2, sequence 1 for A
+  assert.equal(viewFor(h.ctx, h.seat.A.CFO).competition.puzzle.id, 1);
+  assert.equal(viewFor(h.ctx, h.seat.B.CFO).competition.puzzle.id, 1);
+});
