@@ -103,3 +103,25 @@ test('a malformed escape is a 400, not a crash', async () => {
     assert.equal((await get(port, '/')).status, 200);
   });
 });
+
+test('pages carry the strict Content-Security-Policy; scripts and styles do not need it', async () => {
+  const { PAGE_CSP } = await import('../src/static.js');
+  assert.equal(PAGE_CSP, "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+  await withServer(async (port) => {
+    const csp = (path) => new Promise((resolve) => http.get({ port, path }, (res) => { res.resume(); resolve(res.headers['content-security-policy']); }));
+    assert.equal(await csp('/'), PAGE_CSP);
+    assert.equal(await csp('/sub/'), PAGE_CSP);
+    assert.equal(await csp('/app.js'), undefined);
+  });
+});
+
+test('the shipped pages use no inline script, style element or style attribute', async () => {
+  const { readFileSync } = await import('node:fs');
+  for (const f of ['public/index.html', 'public/organizer.html']) {
+    const h = readFileSync(f, 'utf8');
+    assert.doesNotMatch(h, /<style|\sstyle=|<script(?![^>]*\ssrc=)|\son[a-z]+=/i, f);
+  }
+  for (const f of ['public/render.js', 'public/render-organizer.js', 'public/app.js', 'public/organizer.js', 'public/puzzles/ui.js', 'public/kit.js']) {
+    assert.doesNotMatch(readFileSync(f, 'utf8'), /\sstyle="|<style/, f);
+  }
+});

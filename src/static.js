@@ -14,6 +14,9 @@ const TYPES = {
   '.ico': 'image/x-icon',
 };
 
+// Pages may load only their own scripts, styles, images and fonts and talk only to this server.
+export const PAGE_CSP = "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+
 const inside = (base, file) => file === base || file.startsWith(base + sep);
 
 export function staticHandler(rootDir) {
@@ -62,6 +65,7 @@ export function staticHandler(rootDir) {
         'cache-control': 'no-cache',
         'x-content-type-options': 'nosniff',
       };
+      if (headers['content-type'].startsWith('text/html')) headers['content-security-policy'] = PAGE_CSP;
       if (req.method === 'HEAD') { res.writeHead(200, headers); return res.end(); }
       const body = await readFile(file);
       res.writeHead(200, headers);

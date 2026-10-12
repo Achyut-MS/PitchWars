@@ -83,7 +83,7 @@ test('ideation: idea cards keep their buttons, a type picture, the chosen mark a
   assert.match(h, /#i-app"/);
   assert.match(h, /"type":"pick","ideaId":"S3"/);
   assert.match(h, /<aside class="card tally"><h2>Live vote count<\/h2>/);
-  assert.match(h, /<span class="track"><i style="width:40%"><\/i><\/span><span class="v">2<\/span>/); // 2 of 5 votes
+  assert.match(h, /<span class="track"><i class="w-40"><\/i><\/span><span class="v">2<\/span>/); // 2 of 5 votes
   assert.match(renderScreen(P2['ideation-picked']), /<li class="idea mine chosen">/);
 });
 

@@ -85,7 +85,7 @@ function ideation(v) {
     ${canPick ? send('Pick this idea', { type: 'pick', ideaId: i.id }, 'primary') : ''}
   </li>`).join('');
   const total = ideas.reduce((n, i) => n + (Number(i.votes) || 0), 0) || 1;
-  const tally = `<aside class="card tally"><h2>Live vote count</h2><ol>${ideas.map((i, n) => `<li><span class="n">${n + 1}</span><span class="track"><i style="width:${Math.round(100 * (Number(i.votes) || 0) / total)}%"></i></span><span class="v">${esc(i.votes)}</span></li>`).join('')}</ol></aside>`;
+  const tally = `<aside class="card tally"><h2>Live vote count</h2><ol>${ideas.map((i, n) => `<li><span class="n">${n + 1}</span><span class="track"><i class="w-${Math.round(100 * (Number(i.votes) || 0) / total)}"></i></span><span class="v">${esc(i.votes)}</span></li>`).join('')}</ol></aside>`;
   const pickedCard = picked
     ? `<p class="notice">Your company picked ${esc(ideas.find((i) => i.id === picked)?.name ?? picked)}. Waiting for the other company.</p>`
     : '';
@@ -185,7 +185,7 @@ function ratesPanel(v, c) {
   const lv = c.level && c.level[role];
   const level = Number.isFinite(Number(lv)) && lv != null ? (Number.isInteger(Number(lv)) ? String(Number(lv)) : Number(lv).toFixed(1)) : '';
   const meter = mine == null ? '' : `<div id="sales-meter" class="meter" role="meter" aria-valuemin="0" aria-valuemax="${MAX_RATE}" aria-valuenow="${esc(mine)}" aria-label="Your sales">
-  <div class="fill" style="width:${Math.min(100, Math.round((mine / MAX_RATE) * 100))}%"></div></div>
+  <div class="fill w-${Math.min(100, Math.max(0, Math.round((mine / MAX_RATE) * 100)))}"></div></div>
   <p>Your sales: <b class="my-rate">${esc(mine)}</b> coins per minute ${level === '' ? '' : `<small class="level">Level ${esc(level)}</small>`}</p>`;
   return `<section class="card rates"><h3>Sales per minute</h3>${meter}
   <ul><li>CTO <b>${esc(num(r.CTO))}</b></li><li>CMO <b>${esc(num(r.CMO))}</b></li><li>COO <b>${esc(num(r.COO))}</b></li></ul>
