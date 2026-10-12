@@ -1,4 +1,6 @@
 import http from 'node:http';
+import { randomUUID } from 'node:crypto';
+import { createExportHandler } from './exportHttp.js';
 import { fireWarnings, warningFor } from './warnings.js';
 import { launchAttack } from './attacks.js';
 import { triggerMarketEvent, injectCoins } from './marketEvents.js';
@@ -58,7 +60,19 @@ export function createApp({
   const handler = staticRoot
     ? staticHandler(staticRoot)
     : (req, res) => { res.writeHead(404); res.end(); };
-  const server = http.createServer(handler);
+  // Organizer download tokens: random, one per organizer login, memory only (oldest dropped past the cap).
+  const tokens = new Set();
+  const MAX_TOKENS = 50;
+  const exporter = createExportHandler({ db, data, ctx, tokens });
+  const server = http.createServer(async (req, res) => {
+    try {
+      if (await exporter(req, res)) return;
+    } catch {
+      if (!res.headersSent) res.writeHead(500);
+      return res.end();
+    }
+    return handler(req, res);
+  });
   const wss = new WebSocketServer({ server, maxPayload: BIG_MSG });
   const sessions = new Map(); // ws -> { kind: 'organizer' } | { kind: 'participant', admissionId }
   const attempts = new WeakMap(); // ws -> { fails: [ts], lockedUntil }
@@ -234,12 +248,24 @@ export function createApp({
   // (type errors, database errors) is not shown to the user.
   const errorText = (e) => (e && e.constructor === Error ? e.message : 'bad_message');
 
+  // Forgets the socket's session and, for a participant, logs one `disconnect`. Never throws;
+  // a socket with no session (unauthenticated, organizer, already ended) logs nothing.
+  function endSession(ws) {
+    const s = sessions.get(ws);
+    sessions.delete(ws);
+    if (!s || s.kind !== 'participant') return;
+    try {
+      const p = getStatus.get(s.admissionId);
+      logEvent(db, { ts: now(), gameId: p ? p.game_id : null, admissionId: s.admissionId, type: 'disconnect' });
+    } catch (e) { console.error('disconnect log failed:', e && e.message); }
+  }
+
   wss.on('connection', (ws) => {
     alive.set(ws, true);
     ws.on('pong', () => alive.set(ws, true));
-    ws.on('close', () => sessions.delete(ws));
+    ws.on('close', () => endSession(ws));
     ws.on('error', () => {
-      sessions.delete(ws);
+      endSession(ws);
       ws.terminate();
     });
     ws.on('message', (raw) => {
@@ -294,7 +320,10 @@ export function createApp({
       const r = organizerAttempt(ws, msg.password);
       if (r !== 'ok') return send(ws, { type: 'error', error: r });
       sessions.set(ws, { kind: 'organizer' });
-      return send(ws, { type: 'welcome', view: 'organizer' });
+      const token = randomUUID();
+      tokens.add(token);
+      if (tokens.size > MAX_TOKENS) tokens.delete(tokens.values().next().value);
+      return send(ws, { type: 'welcome', view: 'organizer', token });
     }
 
     const s = sessions.get(ws);
@@ -362,7 +391,7 @@ export function createApp({
   // Two-strike ping: a socket that did not answer the previous ping is terminated.
   function pingAll() {
     for (const ws of wss.clients) {
-      if (alive.get(ws) === false) { sessions.delete(ws); ws.terminate(); continue; }
+      if (alive.get(ws) === false) { endSession(ws); ws.terminate(); continue; }
       alive.set(ws, false);
       try { ws.ping(); } catch { ws.terminate(); }
     }

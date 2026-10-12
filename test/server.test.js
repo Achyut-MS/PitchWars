@@ -45,7 +45,9 @@ test('a wrong organizer password is refused, the right one is welcomed', async (
   const { app, url } = await boot();
   const ws = await connect(url);
   assert.equal((await ask(ws, { type: 'organizer', password: 'bad' })).type, 'error');
-  assert.deepEqual(await ask(ws, { type: 'organizer', password: 'pw' }), { type: 'welcome', view: 'organizer' });
+  const w = await ask(ws, { type: 'organizer', password: 'pw' });
+  assert.equal(w.type, 'welcome');
+  assert.equal(w.view, 'organizer');
   await close(app, ws);
 });
 

@@ -14,6 +14,7 @@ let shownKey = null;
 let pointerDown = false;
 let downAt = 0;
 let pendingTimer = null;
+let token = null; // download token from the organizer welcome; memory only, never put in the DOM
 const ui = { injectDraft: null, importResult: null, confirm: null, error: '', offline: true };
 try { password = sessionStorage.getItem('orgPassword'); } catch { /* ignore */ }
 
@@ -58,7 +59,7 @@ function showLogin(msg) { view = null; shownKey = null; root.innerHTML = renderO
 
 function onMessage(m) {
   if (!m || typeof m !== 'object') return;
-  if (m.type === 'welcome') { ui.offline = false; send({ type: 'sync' }); }
+  if (m.type === 'welcome') { if (typeof m.token === 'string') token = m.token; ui.offline = false; send({ type: 'sync' }); }
   else if (m.type === 'state') {
     if (!m.view || typeof m.view !== 'object') return;
     view = m.view;
@@ -118,6 +119,15 @@ document.addEventListener('pointercancel', lift, true);
 
 // One send per click burst: the guard ignores a second tap, and the same message twice within 600 ms.
 const guarded = (m) => { const text = JSON.stringify(m); if (!guard.allow(text, Date.now())) return; ui.confirm = null; send(m); };
+
+// Download links carry the token only for the instant of the click, then the plain href is restored.
+document.addEventListener('click', (e) => {
+  const a = e.target.closest && e.target.closest('a[data-export], a[data-graph]');
+  if (!a || !token) return;
+  const plain = a.getAttribute('href').split('?')[0];
+  a.setAttribute('href', `${plain}?token=${encodeURIComponent(token)}`);
+  setTimeout(() => a.setAttribute('href', plain), 0);
+}, true);
 
 let confirmTimer = null;
 document.addEventListener('click', (e) => {
