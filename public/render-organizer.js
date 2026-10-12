@@ -130,7 +130,9 @@ export function renderOrganizer(v, ui = {}) {
   ui = ui || {};
   const off = ui.offline ? renderOffline() : '';
   const err = off + (ui.error ? `<p class="error" role="alert" id="org-error">${esc(ui.error)}</p>` : '');
-  if (!v.game) return `<main>${err}${backupLine(v.backup)}${lobby(v, ui)}</main>`;
+  const rehearsal = Number(v.rehearsalSpeed) > 1
+    ? `<p class="warn" id="rehearsal-banner" role="alert">REHEARSAL SPEED x${esc(v.rehearsalSpeed)} — NOT FOR THE EVENT</p>` : '';
+  if (!v.game) return `<main>${rehearsal}${err}${backupLine(v.backup)}${lobby(v, ui)}</main>`;
   const clock = v.game.clock ?? { phase: '?', remainingSec: 0 };
   const companies = v.game.companies ?? {};
   const stuck = arr(v.game.stuck);
@@ -141,6 +143,6 @@ export function renderOrganizer(v, ui = {}) {
   ${['briefing', 'ideation', 'shop', 'summary'].includes(clock.phase)
     ? `<p class="muted">Rehearsal and testing only:</p>${confirmButton('skip to next phase', 'skip_phase', ui)}` : ''}</section>`;
   return `<header class="bar"><span>Game ${esc(v.game.id)}</span><span class="phase">${esc(clock.phase)}</span><span id="clock">${fmtClock(clock.remainingSec)}</span></header>
-  <main>${banner}${err}${backupLine(v.backup)}${controls}${clock.phase === 'briefing' ? seatTools(v, ui) : ''}${clock.phase === 'competition' ? competitionControls(v.game, ui) : ''}${resultsControls(v.game, ui)}</main>
+  <main>${rehearsal}${banner}${err}${backupLine(v.backup)}${controls}${clock.phase === 'briefing' ? seatTools(v, ui) : ''}${clock.phase === 'competition' ? competitionControls(v.game, ui) : ''}${resultsControls(v.game, ui)}</main>
   <main class="two">${panel('A', companies.A, v.game.ideas)}${panel('B', companies.B, v.game.ideas)}</main>`;
 }

@@ -14,6 +14,7 @@ import { loadData } from './data.js';
 import { staticHandler } from './static.js';
 import { runDirector } from './director.js';
 import { logEvent } from './events.js';
+import { signPage, joinConfigFromEnv } from './sign.js';
 import { importRoster, addParticipant } from './roster.js';
 import { assign, unassign, startGame } from './lobby.js';
 import { swapSeats, replacePlayer } from './seats.js';
@@ -54,9 +55,10 @@ const TRY_AGAIN = 'could not make a puzzle just now, please try again';
 export function createApp({
   db, organizerPassword, now = Date.now, data = loadData(), staticRoot = 'public', exportDir = 'data/graphs', director = runDirector,
   setTimer = (fn, ms) => setTimeout(fn, ms).unref(), clearTimer = clearTimeout,
-  backupDir = 'backups', backup = backupDb, backupKeep = 50, backupTimeoutMs = 60_000,
+  backupDir = 'backups', backup = backupDb, backupKeep = 50, backupTimeoutMs = 60_000, speed = 1,
+  join = () => joinConfigFromEnv(process.env),
 }) {
-  const ctx = { db, data, now, exportDir, backupDir };
+  const ctx = { db, data, now, exportDir, backupDir, speed };
   const handler = staticRoot
     ? staticHandler(staticRoot)
     : (req, res) => { res.writeHead(404); res.end(); };
@@ -71,8 +73,21 @@ export function createApp({
       if (!res.headersSent) res.writeHead(500);
       return res.end();
     }
+    if (/^\/join\/?(\?|$)/.test(req.url || '')) return serveJoin(req, res);
     return handler(req, res);
   });
+  // The join sign: public, read-only, built from server settings only (never from the request).
+  function serveJoin(req, res) {
+    if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { allow: 'GET, HEAD' }); return res.end(); }
+    const body = signPage(join());
+    res.writeHead(200, {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store',
+      'x-content-type-options': 'nosniff',
+      'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:",
+    });
+    return res.end(req.method === 'HEAD' ? undefined : body);
+  }
   const wss = new WebSocketServer({ server, maxPayload: BIG_MSG });
   const sessions = new Map(); // ws -> { kind: 'organizer' } | { kind: 'participant', admissionId }
   const attempts = new WeakMap(); // ws -> { fails: [ts], lockedUntil }
@@ -171,6 +186,7 @@ export function createApp({
     },
     start_game: (m) => {
       const id = startGame(db, int(m.problemId), now());
+      if (speed > 1) logEvent(db, { ts: now(), gameId: id, type: 'rehearsal_speed', payload: { speed } });
       logAct('start_game', { problemId: m.problemId }, id);
     },
     swap_seats: (m) => {

@@ -225,3 +225,11 @@ test('the backup line shows time and ok, or a red failure message, and escapes t
   assert.ok(!bad.includes('<script>'));
   assert.match(bad, /class="error"[^>]*id="backup-status"|id="backup-status"[^>]*class="error"/);
 });
+
+test('rehearsal speed shows a persistent banner in the lobby and in a running game', () => {
+  for (const v of [lobby(), running()]) {
+    assert.ok(!renderOrganizer(v).includes('NOT FOR THE EVENT'));
+    v.rehearsalSpeed = 10;
+    assert.match(renderOrganizer(v), /REHEARSAL SPEED x10 — NOT FOR THE EVENT/);
+  }
+});

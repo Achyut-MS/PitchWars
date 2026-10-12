@@ -112,3 +112,52 @@ test('checkPassword rejects unset, empty and the placeholder password', () => {
   assert.match(checkPassword('1234567').message, /8 characters/);
   assert.equal(checkPassword('12345678').ok, true);
 });
+
+import { cleanSpeed } from '../src/index.js';
+
+test('cleanSpeed accepts 1 to 60 and turns everything else into 1 with a warning', () => {
+  const warn = mock.method(console, 'warn', () => {});
+  try {
+    assert.equal(cleanSpeed(undefined), 1);
+    assert.equal(cleanSpeed(''), 1);
+    assert.equal(cleanSpeed('10'), 10);
+    assert.equal(cleanSpeed(60), 60);
+    assert.equal(warn.mock.callCount(), 0);
+    for (const bad of [0, -5, NaN, 'abc', 61, '1e9', '0', Infinity]) assert.equal(cleanSpeed(bad), 1, String(bad));
+    assert.equal(warn.mock.callCount(), 8);
+  } finally { warn.mock.restore(); }
+});
+
+test('bootstrap speed 10 makes the clock ten times faster; bad speeds behave like 1', async () => {
+  const warn = mock.method(console, 'warn', () => {});
+  const log = mock.method(console, 'log', () => {});
+  try {
+    for (const [speed, factor] of [[10, 10], ['fast', 1], [500, 1], [undefined, 1]]) {
+      let real = 1_000_000;
+      const { clock, app, stop } = await bootstrap({ dbFile: ':memory:', organizerPassword: 'pw', port: 0, speed, realNow: () => real });
+      try {
+        const start = clock.now();
+        real += 5000;
+        assert.equal(clock.now() - start, 5000 * factor, `speed ${speed}`);
+        assert.equal(app.ctx.speed, factor);
+      } finally { await stop(); }
+    }
+    assert.ok(log.mock.calls.some((c) => /speed/i.test(String(c.arguments[0]))), 'the speed is logged at startup');
+  } finally { warn.mock.restore(); log.mock.restore(); }
+});
+
+test('bootstrap runs the tick every 1000/speed ms, the heartbeat every 5000/speed ms, backup and ping in real time', async () => {
+  const calls = [];
+  const realSet = globalThis.setInterval;
+  const spy = mock.method(globalThis, 'setInterval', (fn, ms, ...rest) => { calls.push(ms); return realSet(fn, ms, ...rest); });
+  const log = mock.method(console, 'log', () => {});
+  try {
+    const timers = { setInterval: (fn, ms) => { calls.push(`backup:${ms}`); return 0; }, clearInterval() {} };
+    const { stop } = await bootstrap({ dbFile: ':memory:', organizerPassword: 'pw', port: 0, speed: 10, backupEveryMs: 300000, timers });
+    await stop();
+    assert.ok(calls.includes(100), 'tick 100 ms');
+    assert.ok(calls.includes(500), 'heartbeat 500 ms');
+    assert.ok(calls.includes(30000), 'ping stays 30 s');
+    assert.ok(calls.includes('backup:300000'), 'backup stays in real ms');
+  } finally { spy.mock.restore(); log.mock.restore(); }
+});
