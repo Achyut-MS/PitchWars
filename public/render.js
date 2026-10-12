@@ -180,12 +180,39 @@ function hintCard(c) {
   return `<aside class="hint" aria-label="Hint"><details open><summary>Hint</summary><p>${esc(c.hint.text)}</p></details></aside>`;
 }
 
+const nz = (n) => (Number.isFinite(Number(n)) ? Number(n) : 0);
+
+// The CFO's puzzle panel. Plain markup; #puzzle-slot is filled by the browser from its local puzzle state.
+export function renderPuzzlePanel(v) {
+  const c = v.competition || {};
+  if (v.me.role !== 'CFO' || !('puzzle' in c)) return '';
+  const pp = c.puzzlePanel || {};
+  const done = c.puzzlesDone || {};
+  const solved = nz(pp.solved ?? done.solved);
+  const note = '<p id="puzzle-note" class="puzzle-note muted" role="status"></p>';
+  if (!c.puzzle) {
+    const lvl = pp.level != null ? `<p class="puzzle-stats">Level ${esc(pp.level)} | Solved: ${esc(solved)}${pp.nextReward != null ? ` | Next reward: ${esc(pp.nextReward)} coins` : ''}</p>` : '';
+    return `<section class="card puzzle" id="puzzle-panel"><h3>Puzzles</h3><p class="muted">Puzzles are optional. Solved puzzles earn coins.</p>${lvl}${send('Start a puzzle', { type: 'puzzle_next' }, 'primary')}${note}</section>`;
+  }
+  const p = c.puzzle;
+  const free = nz(p.skipsFreeLeft);
+  const skipText = free > 0 ? `Free skips left: ${free}` : 'Skipping now costs 10 coins';
+  const skipBtn = free > 0
+    ? send('Skip', { type: 'puzzle_skip' }, 'skip')
+    : send('Skip', { type: 'puzzle_skip' }, 'skip skip-paid').replace('<button ', '<button data-confirm="1" ');
+  return `<section class="card puzzle" id="puzzle-panel"><h3>${esc(p.name)} <small>level ${esc(p.level)}, ${esc(p.reward)} coins</small></h3>
+  <p class="puzzle-stats">Solved: ${esc(solved)}</p>
+  <div id="puzzle-slot" data-puzzle-id="${esc(p.id)}" data-kind="${esc(p.kind)}"></div>
+  <button id="puzzle-submit" class="primary">Check answer</button>${skipBtn}
+  <p class="muted">${esc(skipText)}</p>${note}</section>`;
+}
+
 export function renderCompetition(v) {
   const c = v.competition || {};
   const w = v.clock.warning;
   const banner = w && BANNERS[w] ? `<p class="banner ${esc(w)}" role="status">${esc(BANNERS[w])}</p>` : '';
   const notices = (Array.isArray(c.notices) ? c.notices : []).map((n) => `<p class="notice">${esc(n)}</p>`).join('');
-  return `${header(v)}${banner}${notices}<section class="competition">${hintCard(c)}${ratesPanel(v, c)}${attackPanel(c)}${shieldPanel(c)}</section>${shopBody(v)}`;
+  return `${header(v)}${banner}${notices}<section class="competition">${hintCard(c)}${ratesPanel(v, c)}${attackPanel(c)}${shieldPanel(c)}${renderPuzzlePanel(v)}</section>${shopBody(v)}`;
 }
 
 function summary(v) {

@@ -65,3 +65,37 @@ export function createConfirm(windowMs = 5000) {
     reset() { key = null; },
   };
 }
+
+// Quiet one-line messages for the puzzle panel (shown in #puzzle-note).
+const NOTES = {
+  wrong: 'Not quite, keep going. A wrong answer costs nothing.',
+  tryagain: 'Could not make a puzzle just now. Please try again.',
+};
+export const puzzleNote = (kind) => (typeof kind === 'string' && Object.hasOwn(NOTES, kind) ? NOTES[kind] : '');
+
+// The player's half-solved puzzle lives here, in the page, keyed by puzzle id. Server pushes (every second
+// in a busy game) call sync() with the same id and change nothing; only a new id starts fresh.
+export function createPuzzleSession(UI) {
+  let id = null;
+  let puzzle = null;
+  let state = null;
+  const ui = () => (puzzle && Object.hasOwn(UI, puzzle.kind) ? UI[puzzle.kind] : null);
+  return {
+    sync(p) {
+      if (!p || typeof p !== 'object' || !Object.hasOwn(UI, p.kind)) { id = null; puzzle = null; state = null; return false; }
+      if (id !== p.id) { id = p.id; puzzle = p; state = UI[p.kind].initial(p.puzzle); } else puzzle = p;
+      return true;
+    },
+    tap(t) { const u = ui(); if (u) state = u.apply(puzzle.puzzle, state, t); },
+    render() { const u = ui(); return u ? u.render(puzzle.puzzle, state) : ''; },
+    answer() { const u = ui(); return u ? u.answer(puzzle.puzzle, state) : null; },
+    get id() { return id; },
+  };
+}
+
+// What a puzzle_result message should do in the page: a closed puzzle (double tap, already skipped) is silent.
+export function puzzleResultAction(m) {
+  if (!m || typeof m !== 'object' || m.closed === true) return { note: null, toast: null };
+  if (m.ok) return { note: null, toast: `Solved! +${Number(m.coins) || 0} coins` };
+  return { note: 'wrong', toast: 'Not quite yet' };
+}

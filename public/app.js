@@ -1,5 +1,6 @@
 import { renderLogin, renderScreen, renderConnecting, renderOffline, fmtClock, clockClass } from './render.js';
-import { humanError, viewKey, createSendGuard, redrawDecision, createConfirm } from './glue.js';
+import { humanError, viewKey, createSendGuard, redrawDecision, createConfirm, createPuzzleSession, puzzleNote, puzzleResultAction } from './glue.js';
+import { UI } from './puzzles/ui.js';
 
 const root = document.getElementById('app');
 const toast = document.getElementById('toast');
@@ -19,6 +20,9 @@ let downAt = 0;
 let pending = null; // a redraw waiting for the finger to lift
 let pendingTimer = null;
 let lastError = '';
+const puzzle = createPuzzleSession(UI); // local tap state, kept across redraws, reset when the puzzle id changes
+let puzzleView = null; // the open puzzle from the latest state push
+let noteKind = null;
 try { id = sessionStorage.getItem('admissionId'); } catch { /* storage may be blocked */ }
 
 const sendMsg = (m) => { if (ws && ws.readyState === 1) { ws.send(typeof m === 'string' ? m : JSON.stringify(m)); return true; } return false; };
@@ -48,7 +52,24 @@ function paint(html) {
   const input = root.querySelector('input[name="id"]');
   if (field && input) { input.value = field.v; input.focus(); }
   guard.release();
+  mountPuzzle();
   applyOffline();
+}
+
+function setNote(kind) {
+  noteKind = kind;
+  const n = document.getElementById('puzzle-note');
+  if (n) n.textContent = puzzleNote(kind);
+}
+
+// Fills the slot from the retained local state; also shows any pending note.
+function mountPuzzle() {
+  const slot = document.getElementById('puzzle-slot');
+  if (!slot || !puzzleView) { if (!slot) puzzle.sync(null); return; }
+  puzzle.sync(puzzleView);
+  slot.innerHTML = puzzle.render();
+  const n = document.getElementById('puzzle-note');
+  if (n) n.textContent = puzzleNote(noteKind);
 }
 
 function showLogin(err) {
@@ -65,6 +86,10 @@ function onState(view) {
   if (!view || typeof view !== 'object') return;
   loggedIn = true;
   shownPhase = view.screen === 'game' && view.clock ? view.clock.phase : null;
+  const pz = view.competition && view.competition.puzzle;
+  puzzleView = pz || null;
+  if (!pz) puzzle.sync(null);
+  else if (pz.id !== puzzle.id) noteKind = null;
   const key = viewKey(view);
   const d = redrawDecision({ changed: key !== shownKey, pointerDown, downAt, now: Date.now() });
   if (d.action === 'skip') { guard.release(); return; }
@@ -100,6 +125,13 @@ function onMessage(m) {
       syncedFor = m.phase;
       sendMsg({ type: 'sync' });
     }
+  } else if (m.type === 'puzzle_result') {
+    guard.release();
+    const b = document.getElementById('puzzle-submit');
+    if (b) b.disabled = !online;
+    const a = puzzleResultAction(m);
+    if (m.closed !== true) setNote(a.note);
+    if (a.toast) showToast(a.toast);
   } else if (m.type === 'attack_result') {
     guard.release();
     showToast(m.blocked ? 'Attack blocked' : 'Attack launched');
@@ -114,7 +146,10 @@ function onMessage(m) {
     } else if (!loggedIn) {
       lastError = humanError(e);
       showLogin(lastError);
-    } else showToast(humanError(e));
+    } else {
+      if (/try again/i.test(e) && /puzzle/i.test(e)) setNote('tryagain');
+      showToast(humanError(e));
+    }
   }
 }
 
@@ -152,14 +187,30 @@ document.addEventListener('pointerup', lift, true);
 document.addEventListener('pointercancel', lift, true);
 
 document.addEventListener('click', (e) => {
+  const slot = e.target.closest && e.target.closest('#puzzle-slot');
+  if (slot) {
+    const td = e.target.closest('[data-cell]');
+    const card = e.target.closest('[data-card]');
+    const tap = td ? { cell: td.dataset.cell.split(',').map(Number) } : card ? { card: Number(card.dataset.card) } : null;
+    if (tap && puzzle.id !== null) { puzzle.tap(tap); slot.innerHTML = puzzle.render(); if (noteKind) setNote(null); }
+    return;
+  }
+  if (e.target.id === 'puzzle-submit') {
+    if (puzzle.id === null) return;
+    if (!online) { showToast('Offline - reconnecting. Your tap was not sent.'); return; }
+    if (!guard.allow('puzzle_submit:' + puzzle.id, Date.now())) return;
+    e.target.disabled = true;
+    if (!sendMsg({ type: 'puzzle_submit', answer: puzzle.answer() })) { e.target.disabled = false; guard.release(); showToast('Offline - reconnecting. Your tap was not sent.'); }
+    return;
+  }
   const b = e.target.closest && e.target.closest('[data-send]');
   if (!b) return;
   if (!online) { showToast('Offline - reconnecting. Your tap was not sent.'); return; }
-  if (b.classList.contains('attack-btn')) {
+  if (b.classList.contains('attack-btn') || b.dataset.confirm) {
     // Dangerous: the first tap only arms the button, the second tap launches.
     if (confirmAttack.tap(b.dataset.send, Date.now()) === 'armed') {
       const label = b.textContent;
-      b.textContent = 'Tap again to launch';
+      b.textContent = b.dataset.confirm ? 'Tap again: skip for 10 coins' : 'Tap again to launch';
       b.classList.add('armed');
       setTimeout(() => { if (b.isConnected && b.classList.contains('armed')) { b.textContent = label; b.classList.remove('armed'); } }, 5000);
       return;

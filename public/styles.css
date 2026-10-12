@@ -50,3 +50,17 @@ label select { display: block; margin-top: 2px; }
 .shop-closed, .locked { padding: 8px 16px; font-weight: 700; }
 .attack-btn.armed { outline: 3px solid var(--warn, #c00); }
 .sale-badge { display: inline-block; margin: 8px 16px; padding: 2px 10px; border-radius: 12px; background: var(--accent, #08f); color: #fff; font-weight: 700; }
+
+/* Puzzle panel (Plan 4 base styles; Plan 7 restyles) */
+.puzzle-grid { border-collapse: collapse; margin: 8px 0; }
+.puzzle-grid td, .puzzle-grid th { width: min(44px, 12vw); height: min(44px, 12vw); text-align: center; border: 1px solid var(--line, #ccc); cursor: pointer; user-select: none; }
+.puzzle-grid td.on, .puzzle-grid td.fill.on { background: var(--accent, #08f); color: var(--accent-ink, #fff); }
+.puzzle-grid td.bt { border-top: 3px solid currentColor; } .puzzle-grid td.br { border-right: 3px solid currentColor; }
+.puzzle-grid td.bb { border-bottom: 3px solid currentColor; } .puzzle-grid td.bl { border-left: 3px solid currentColor; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 8px; }
+.cards .card.picked { outline: 3px solid var(--accent, #08f); }
+.reg-0 { background: color-mix(in srgb, var(--accent, #08f) 10%, transparent); } .reg-1 { background: color-mix(in srgb, var(--accent, #08f) 22%, transparent); }
+.reg-2 { background: color-mix(in srgb, #e80 22%, transparent); } .reg-3 { background: color-mix(in srgb, #0a5 22%, transparent); }
+.reg-4 { background: color-mix(in srgb, #c0c 18%, transparent); } .reg-5 { background: color-mix(in srgb, #ca0 24%, transparent); }
+.reg-6 { background: color-mix(in srgb, #0bb 22%, transparent); } .reg-7 { background: color-mix(in srgb, #888 22%, transparent); }
+.puzzle-note { min-height: 1.2em; }
