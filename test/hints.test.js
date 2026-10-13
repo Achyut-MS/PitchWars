@@ -145,3 +145,53 @@ test('acted is 1 when the role made a shop request within 60 seconds, else 0', (
   assert.equal(by.CMO, 0);
   assert.equal(h.db.prepare("SELECT COUNT(*) n FROM events WHERE type='hint_result'").get().n >= 2, true);
 });
+
+// The trigger reads base rates only: attacks and market events must not move it.
+import { launchAttack } from '../src/attacks.js';
+import { triggerMarketEvent } from '../src/marketEvents.js';
+import { readFileSync } from 'node:fs';
+
+test('an attack landing on the victim role does not create a hint by itself', () => {
+  const h = toCompetition(makeRunning());
+  give(h, 'A', ['O01', 'O02']);
+  give(h, 'B', ['O01', 'O02']);
+  launchAttack(h.ctx, h.game(), h.seat.A.CEO, 'market_crash', () => 0); // halves B's rates: effective gap 10
+  evaluateHints(h.ctx, h.game());
+  assert.equal(hints(h).length, 0);
+});
+
+test('a hint still appears for a base gap of 10 or more while an attack is active', () => {
+  const h = toCompetition(makeRunning());
+  give(h, 'A', ['O01', 'O02', 'O03']);
+  give(h, 'B', ['O01']);
+  launchAttack(h.ctx, h.game(), h.seat.A.CEO, 'price_squeeze', () => 0);
+  evaluateHints(h.ctx, h.game());
+  const rows = hints(h);
+  assert.equal(rows.length, 1);
+  assert.deepEqual([rows[0].company, rows[0].role], ['B', 'COO']);
+  assert.match(rows[0].text, /holding the company back/);
+  assert.doesNotMatch(rows[0].text, /attack|rival|squeeze/i);
+});
+
+test('a demand surge does not create a hint from a base gap of 9', () => {
+  const h = toCompetition(makeRunning());
+  give(h, 'A', ['O01']);
+  give(h, 'B', ['O04-H', 'O05-F']);
+  triggerMarketEvent(h.ctx, h.game(), 'demand_surge');
+  evaluateHints(h.ctx, h.game());
+  assert.equal(hints(h).length, 0);
+});
+
+test('a demand slump does not suppress a hint from a base gap of 11', () => {
+  const h = toCompetition(makeRunning());
+  give(h, 'A', ['O01']);
+  give(h, 'B', ['O05-F']);
+  triggerMarketEvent(h.ctx, h.game(), 'demand_slump');
+  evaluateHints(h.ctx, h.game());
+  assert.equal(hints(h).length, 1);
+});
+
+test('the hints module uses no Math.random or Date.now', () => {
+  const src = readFileSync(new URL('../src/hints.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(src, /Math\.random|Date\.now/);
+});

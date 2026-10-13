@@ -1,8 +1,8 @@
 import { logEvent } from './events.js';
 import { phaseAt, phaseWindow } from './phases.js';
-import { effectiveRates } from './rates.js';
+import { roleRates } from './levels.js';
 import { applicable } from './shop.js';
-import { ideaOf } from './state.js';
+import { ideaOf, ownedRows } from './state.js';
 
 const GAP = 10;
 const COOLDOWN_MS = 60_000;
@@ -40,7 +40,9 @@ export function evaluateHints(ctx, game) {
   if (phaseAt(game, t).phase !== 'competition') return;
   const start = phaseWindow(game, 'competition').start;
 
-  const rates = { A: effectiveRates(ctx, game, 'A', t), B: effectiveRates(ctx, game, 'B', t) };
+  // Base rates only: attack and market-event modifiers must not time a hint.
+  const baseRates = (company) => roleRates(ctx.data, ownedRows(ctx.db, game.id, company).map((o) => o.item_id));
+  const rates = { A: baseRates('A'), B: baseRates('B') };
   ctx.db.transaction(() => {
     for (const h of ctx.db.prepare('SELECT * FROM hints WHERE game_id=? AND acted IS NULL AND ts + ? <= ?').all(game.id, COOLDOWN_MS, t)) {
       const asked = ctx.db.prepare(
