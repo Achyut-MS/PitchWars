@@ -172,17 +172,24 @@ export function createApp({
   // Backups: one at a time, never throw, never wait forever; the organizer (only) sees the outcome.
   let backupStatus = null;
   let backupFlight = null;
+  let backupStuck = false; // set on timeout, cleared only when the hung job finally settles
   ctx.backupStatus = () => backupStatus;
   function runBackup(label) {
     if (backupFlight) return backupFlight;
+    if (backupStuck) {
+      // a timed-out job is still running: never start an overlapping one
+      backupStatus = { ok: false, at: now(), file: null, error: 'previous backup still running' };
+      return Promise.resolve(backupStatus);
+    }
     const flight = (async () => {
       let tm;
       try {
         const job = Promise.resolve().then(() => backup(db, ctx.backupDir, label, now()));
-        job.catch(() => {});
+        const unstick = () => { backupStuck = false; };
+        job.then(unstick, unstick);
         const file = await Promise.race([
           job,
-          new Promise((_, rej) => { tm = setTimer(() => rej(new Error('backup timed out')), backupTimeoutMs); }),
+          new Promise((_, rej) => { tm = setTimer(() => { backupStuck = true; rej(new Error('backup timed out')); }, backupTimeoutMs); }),
         ]);
         try { pruneBackups(ctx.backupDir, backupKeep); } catch (e) { console.error('prune failed:', e); }
         backupStatus = { ok: true, at: now(), file, error: null };
