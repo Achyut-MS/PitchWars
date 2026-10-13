@@ -22,3 +22,26 @@ test('logEvent stores the payload as JSON against the admission id', () => {
   assert.equal(row.admission_id, 'A1');
   assert.deepEqual(JSON.parse(row.payload), { ok: true });
 });
+
+test('events has an index on admission_id, added to an old database, and lookups use it', async () => {
+  const { default: Database } = await import('better-sqlite3');
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const dir = mkdtempSync(join(tmpdir(), 'idx-'));
+  try {
+    const file = join(dir, 'old.db');
+    const old = openDb(file);
+    old.exec('DROP INDEX events_by_admission');
+    old.close();
+    const raw = new Database(file);
+    assert.equal(raw.prepare("SELECT 1 FROM sqlite_master WHERE name='events_by_admission'").get(), undefined);
+    raw.close();
+    const db = openDb(file);
+    assert.ok(db.prepare("SELECT 1 FROM sqlite_master WHERE name='events_by_admission'").get());
+    assert.ok(db.prepare("SELECT 1 FROM sqlite_master WHERE name='events_by_game'").get());
+    const plan = db.prepare('EXPLAIN QUERY PLAN SELECT * FROM events WHERE admission_id=?').all('S1').map((r) => r.detail).join(' ');
+    assert.match(plan, /events_by_admission/);
+    db.close();
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

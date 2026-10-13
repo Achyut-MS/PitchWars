@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS events (
   payload      TEXT NOT NULL DEFAULT '{}'
 );
 CREATE INDEX IF NOT EXISTS events_by_game ON events (game_id, ts);
+CREATE INDEX IF NOT EXISTS events_by_admission ON events (admission_id);
 CREATE TABLE IF NOT EXISTS company_state (
   game_id     INTEGER NOT NULL,
   company     TEXT NOT NULL,
@@ -200,6 +201,7 @@ function migrate(db) {
   // Hints carry a stored key so one trigger can never be written twice.
   const hintCols = new Set(db.prepare('PRAGMA table_info(hints)').all().map((c) => c.name));
   if (!hintCols.has('hint_key')) db.exec('ALTER TABLE hints ADD COLUMN hint_key TEXT');
+  db.exec('CREATE INDEX IF NOT EXISTS events_by_admission ON events (admission_id)');
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS hints_by_key ON hints (game_id, hint_key)');
 }
 
