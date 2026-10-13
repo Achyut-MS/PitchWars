@@ -3,6 +3,7 @@ const MESSAGES = {
   bad_password: 'Wrong password',
   too_many_attempts: 'Too many tries, wait a minute',
   unknown_id: 'That ID is not on the list',
+  logged_in_elsewhere: 'You logged in on another device. Use this device instead?',
   bad_message: 'Something went wrong. Please try again',
 };
 
@@ -99,3 +100,6 @@ export function puzzleResultAction(m) {
   if (m.ok) return { note: null, toast: `Solved! +${Number(m.coins) || 0} coins` };
   return { note: 'wrong', toast: 'Not quite yet' };
 }
+
+// A socket replaced by a newer login must stay down until the player chooses to take over again.
+export const shouldReconnect = ({ superseded } = {}) => !superseded;

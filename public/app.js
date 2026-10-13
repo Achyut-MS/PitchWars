@@ -1,5 +1,5 @@
-import { renderLogin, renderScreen, renderConnecting, renderOffline, fmtClock, clockClass } from './render.js';
-import { humanError, viewKey, createSendGuard, redrawDecision, createConfirm, createPuzzleSession, puzzleNote, puzzleResultAction } from './glue.js';
+import { renderLogin, renderScreen, renderSuperseded, renderConnecting, renderOffline, fmtClock, clockClass } from './render.js';
+import { humanError, viewKey, createSendGuard, redrawDecision, createConfirm, createPuzzleSession, shouldReconnect, puzzleNote, puzzleResultAction } from './glue.js';
 import { UI } from './puzzles/ui.js';
 
 const root = document.getElementById('app');
@@ -20,6 +20,7 @@ let downAt = 0;
 let pending = null; // a redraw waiting for the finger to lift
 let pendingTimer = null;
 let lastError = '';
+let superseded = false; // a newer login took over: stay down until the player taps Use this device
 const puzzle = createPuzzleSession(UI); // local tap state, kept across redraws, reset when the puzzle id changes
 let puzzleView = null; // the open puzzle from the latest state push
 let noteKind = null;
@@ -138,7 +139,10 @@ function onMessage(m) {
   } else if (m.type === 'error') {
     const e = typeof m.error === 'string' ? m.error : '';
     guard.release();
-    if (e === 'unknown_id') {
+    if (e === 'logged_in_elsewhere') {
+      superseded = true; loggedIn = false; shownKey = null; shownPhase = null; pending = null;
+      paint(renderSuperseded());
+    } else if (e === 'unknown_id') {
       id = null;
       try { sessionStorage.removeItem('admissionId'); } catch { /* ignore */ }
       lastError = humanError(e);
@@ -162,6 +166,7 @@ function connect() {
     else showLogin(lastError);
   };
   ws.onclose = () => {
+    if (!shouldReconnect({ superseded })) return; // keep the message screen and its button as they are
     setOnline(false);
     // Back off 1, 2, 4, 8 s up to 15 s; the server drops dead sockets after about a minute.
     const wait = Math.min(15000, 1000 * 2 ** retry++);
@@ -187,6 +192,7 @@ document.addEventListener('pointerup', lift, true);
 document.addEventListener('pointercancel', lift, true);
 
 document.addEventListener('click', (e) => {
+  if (e.target.id === 'use-here') { superseded = false; root.innerHTML = renderConnecting(); connect(); return; }
   const slot = e.target.closest && e.target.closest('#puzzle-slot');
   if (slot) {
     const td = e.target.closest('[data-cell]');
