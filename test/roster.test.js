@@ -9,7 +9,7 @@ test('normId trims and upper-cases', () => {
 
 test('import adds new ids, skips duplicates, and ignores the header', () => {
   const db = openDb();
-  const r = importRoster(db, 'admission_id,name\n a001 ,Asha\nA001,Asha Again\nB002,Ben');
+  const r = importRoster(db, 'admission_id,name\n a001 ,Asha\nA001, Asha \nB002,Ben');
   assert.deepEqual(r, { added: 2, skipped: 1, rejected: [] });
   assert.equal(db.prepare("SELECT name FROM participants WHERE admission_id='A001'").get().name, 'Asha');
 });
@@ -129,4 +129,12 @@ test('importRoster rejects non-string input', () => {
   const db = openDb();
   assert.throws(() => importRoster(db, undefined), /must be a string/);
   assert.throws(() => importRoster(db, 42), /must be a string/);
+});
+
+test('same id with a different name is rejected, in one file or against the roster', () => {
+  const db = openDb();
+  const r = importRoster(db, 'A001,Asha\nA001,Asha Again\nB002,Ben');
+  assert.deepEqual(r, { added: 2, skipped: 0, rejected: [{ line: 2, reason: 'duplicate id, different name (kept "Asha")' }] });
+  const r2 = importRoster(db, 'b002,Bob\nB002,Ben');
+  assert.deepEqual(r2, { added: 0, skipped: 1, rejected: [{ line: 1, reason: 'duplicate id, different name (kept "Ben")' }] });
 });

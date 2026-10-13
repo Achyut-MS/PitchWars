@@ -79,7 +79,11 @@ export function importRoster(db, text) {
       if (!id) rejected.push({ line: i + 1, reason: 'blank admission id' });
       else if (!name) rejected.push({ line: i + 1, reason: 'blank name' });
       else if (addParticipant(db, id, name)) added++;
-      else skipped++;
+      else {
+        const kept = db.prepare('SELECT name FROM participants WHERE admission_id = ?').get(normId(id)).name;
+        if (kept === name) skipped++;
+        else rejected.push({ line: i + 1, reason: `duplicate id, different name (kept "${kept}")` });
+      }
     });
   })();
   return { added, skipped, rejected };

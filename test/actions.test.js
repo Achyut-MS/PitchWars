@@ -149,6 +149,20 @@ test('the roster upload response lists rejected rows with line and reason', asyn
   await done(app, o);
 });
 
+test('the roster upload reply reports an id repeated with a different name', async () => {
+  const { app, url } = await boot();
+  const o = await organizer(url);
+  await send(o, { type: 'roster_import', text: 'A1,Asha' });
+  const m = await send(o, { type: 'roster_import', text: 'A1,Other\nB2,Ben\nB2,Bea\nA1,Asha' });
+  assert.equal(m.result.added, 1);
+  assert.equal(m.result.skipped, 1);
+  assert.deepEqual(m.result.rejected, [
+    { line: 1, reason: 'duplicate id, different name (kept "Asha")' },
+    { line: 3, reason: 'duplicate id, different name (kept "Ben")' },
+  ]);
+  await done(app, o);
+});
+
 test('every garbage input gets an error reply and the server keeps working', async () => {
   const { app, url, setT } = await boot();
   const o = await organizer(url);
