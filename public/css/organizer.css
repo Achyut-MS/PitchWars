@@ -44,17 +44,17 @@
 #sec-lobby td:last-child { white-space: nowrap; }
 
 /* two companies side by side (draft: monitor-organizer.html, the "duel") */
-main.two { position: relative; }
+.two { position: relative; }
 .card.company > h2:first-child { display: flex; align-items: center; gap: 10px; color: var(--team-on-ink); }
 .card.company > h2 .mark { width: 40px; height: 34px; color: var(--paper); }
 .card.company .big { display: inline-block; background: var(--team); color: var(--team-ink); border: var(--line) solid var(--ink); padding: 6px 12px; }
 .card.company h3 { margin-top: 12px; border-bottom: var(--line) solid var(--team); padding-bottom: 4px; }
 .card.company ul li { border-bottom: 1px dashed var(--ink); padding: 4px 0; display: flex; justify-content: space-between; gap: 8px; }
 @media (min-width: 1000px) {
-  main.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 60px; }
-  main.two::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 18px; transform: translateX(-50%);
+  .two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 60px; }
+  .two::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 18px; transform: translateX(-50%);
     background: linear-gradient(90deg, var(--orange) 50%, var(--blue) 50%); }
-  main.two::after { content: "VS"; position: absolute; left: 50%; top: 40px; transform: translateX(-50%); width: 56px; height: 62px; display: grid; place-items: center;
+  .two::after { content: "VS"; position: absolute; left: 50%; top: 40px; transform: translateX(-50%); width: 56px; height: 62px; display: grid; place-items: center;
     background: var(--ink); color: var(--paper); font: 400 1.3rem var(--block); clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
 }
 
@@ -63,3 +63,13 @@ main.two { position: relative; }
 #inj-company, #inj-coins { min-width: 6rem; }
 a[data-export] { display: inline-flex; align-items: center; min-height: var(--tap); margin: 4px 12px 4px 0; padding: 8px 14px; border: var(--line) solid var(--ink); background: var(--field); font-weight: 700; text-decoration: none; box-shadow: var(--shadow-sm) var(--shadow-sm) 0 var(--ink); }
 .attack-log li, #sec-attacks li { border-bottom: 1px dashed var(--ink); padding: 6px 0; }
+
+/* one organizer section per page: the grid that main.two used to give the live monitor, and the current nav link */
+.two { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
+.two > * + * { margin-top: 0; }
+.side a.on { background: var(--orange); color: var(--ink); }
+
+body:has(.logout:not([hidden])) .head { padding-right: 96px; }
+
+.on-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--ink); background: var(--stone); vertical-align: middle; }
+.on-dot.on { background: var(--good-fill); }

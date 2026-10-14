@@ -215,7 +215,21 @@ function hintCard(c) {
 
 const nz = (n) => (Number.isFinite(Number(n)) ? Number(n) : 0);
 
+// Plain-language rules for the CFO, one per puzzle kind. Shown above every puzzle.
+const PUZZLE_RULES = {
+  queens: ['Tap a square to place a queen, tap it again to remove it.', 'Exactly one queen in every row, every column and every colour region.', 'No two queens may touch, not even corner to corner.'],
+  sets: ['Tap three cards to make a group. Tap a grouped card to undo the group.', 'Each card has a shape, a colour, a number of symbols and a fill.', 'A group is a set when, for each of those four things, the three cards are all the same or all different.', 'Use every card exactly once.'],
+  tower: ['Tap a square to cycle its height: 1, 2, 3 and so on, then blank.', 'Every row and every column uses each height once, with no repeats.', 'A number on the edge tells how many towers you can see looking in from that side. A tall tower hides shorter ones behind it.'],
+  mosaic: ['Tap a square to fill or clear it.', 'Each number says how many filled squares are in the 3 by 3 block around it, counting its own square.', 'Squares with no number have no rule of their own.'],
+  pipes: ['Tap a tile to turn it a quarter turn.', 'Every open pipe end must meet an open end on the next tile, with no loose ends.', 'All the tiles must end up joined into one connected network.'],
+  shikaku: ['Tap one corner square, then the opposite corner, to draw a rectangle. Tap inside a rectangle to remove it.', 'Every square must be inside exactly one rectangle, with no overlaps.', 'Each rectangle holds exactly one number, and that number is the number of squares in the rectangle.'],
+  lits: ['Tap squares to shade them.', 'Shade exactly one piece of four joined squares in every coloured region.', 'No 2 by 2 block may be fully shaded, and all shaded squares must form one connected shape.', 'Two touching pieces from different regions must not have the same shape.'],
+};
+
 // The CFO's puzzle panel. Plain markup; #puzzle-slot is filled by the browser from its local puzzle state.
+const puzzleRules = (kind) => (Object.hasOwn(PUZZLE_RULES, kind)
+  ? `<details class="puzzle-rules" data-key="puzzle-rules" open><summary>How to solve</summary><ul>${PUZZLE_RULES[kind].map((r) => `<li>${esc(r)}</li>`).join('')}</ul></details>` : '');
+
 export function renderPuzzlePanel(v) {
   const c = v.competition || {};
   if (v.me.role !== 'CFO' || !('puzzle' in c)) return '';
@@ -235,6 +249,7 @@ export function renderPuzzlePanel(v) {
     : send('Skip', { type: 'puzzle_skip' }, 'skip skip-paid').replace('<button ', '<button data-confirm="1" ');
   return `<section class="card puzzle" id="puzzle-panel"><h3>${esc(p.name)} <small>level ${esc(p.level)}, ${esc(p.reward)} coins</small></h3>
   <p class="puzzle-stats">Solved: ${esc(solved)}</p>
+  ${puzzleRules(p.kind)}
   <div id="puzzle-slot" data-puzzle-id="${esc(p.id)}" data-kind="${esc(p.kind)}"></div>
   <button id="puzzle-submit" class="primary">Check answer</button>${skipBtn}
   <p class="muted">${esc(skipText)}</p>${note}</section>`;

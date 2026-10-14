@@ -21,6 +21,7 @@ import { swapSeats, replacePlayer } from './seats.js';
 import { castVote, pickIdea, endIdeationNow } from './ideation.js';
 import { requestItem, recommendItem, ceoDecide, cfoDecide } from './shop.js';
 import { skipToNextPhase } from './skip.js';
+import { resetStage, resetAllGames } from './reset.js';
 import { revealGame, nextGame } from './results.js';
 import { backupDb, pruneBackups } from './backup.js';
 import { viewFor, organizerView } from './views.js';
@@ -59,6 +60,8 @@ export function createApp({
   join = () => joinConfigFromEnv(process.env),
 }) {
   const ctx = { db, data, now, exportDir, backupDir, speed };
+  // Participants with a live socket right now (organizer view only).
+  ctx.online = () => new Set([...sessions].filter(([ws, s]) => s.kind === 'participant' && ws.readyState === 1).map(([, s]) => s.admissionId));
   const handler = staticRoot
     ? staticHandler(staticRoot)
     : (req, res) => { res.writeHead(404); res.end(); };
@@ -215,6 +218,16 @@ export function createApp({
       const r = skipToNextPhase(db, g, now());
       logAct('skip_phase', { from: r.from, to: r.to }, g.id);
     },
+    reset_stage: () => {
+      const g = needGame();
+      const r = resetStage(ctx, g);
+      logAct('reset_stage', { phase: r.phase }, g.id);
+    },
+    reset_game: () => {
+      const r = resetAllGames(ctx);
+      lastPhase.clear();
+      logAct('reset_game', r);
+    },
     end_ideation_early: () => {
       const g = needGame();
       endIdeationNow(ctx, g);
@@ -270,6 +283,7 @@ export function createApp({
     const s = sessions.get(ws);
     sessions.delete(ws);
     if (!s || s.kind !== 'participant') return;
+    markDirty(); // the organizer's online list changes
     try {
       const p = getStatus.get(s.admissionId);
       logEvent(db, { ts: now(), gameId: p ? p.game_id : null, admissionId: s.admissionId, type: 'disconnect' });
@@ -329,6 +343,7 @@ export function createApp({
       const r = participantLogin(db, msg.admissionId, now());
       if (!r.ok) return send(ws, { type: 'error', error: r.error });
       sessions.set(ws, { kind: 'participant', admissionId: r.participant.admissionId });
+      markDirty();
       return send(ws, { type: 'welcome', view: r.view, participant: r.participant });
     }
     if (msg.type === 'organizer') {

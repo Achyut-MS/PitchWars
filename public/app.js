@@ -72,8 +72,16 @@ function mountPuzzle() {
   if (n) n.textContent = puzzleNote(noteKind);
 }
 
+const logoutBtn = document.getElementById('logout');
+const showLogout = (on) => { if (logoutBtn) logoutBtn.hidden = !on; };
+logoutBtn?.addEventListener('click', () => {
+  try { sessionStorage.removeItem('admissionId'); } catch { /* ignore */ }
+  location.reload(); // a fresh page, no stored ID: the login screen
+});
+
 function showLogin(err) {
   shownPhase = null; shownKey = null; loggedIn = false;
+  showLogout(false);
   paint(renderLogin(err));
 }
 
@@ -85,6 +93,7 @@ function flushPending() {
 function onState(view) {
   if (!view || typeof view !== 'object') return;
   loggedIn = true;
+  showLogout(true);
   shownPhase = view.screen === 'game' && view.clock ? view.clock.phase : null;
   const pz = view.competition && view.competition.puzzle;
   puzzleView = pz || null;

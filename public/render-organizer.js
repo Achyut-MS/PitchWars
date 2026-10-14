@@ -58,26 +58,38 @@ function seatBoards(v) {
   return `<div class="boards">${board('A')}${board('B')}</div>`;
 }
 
-function lobby(v, ui) {
+const onlineDot = (p) => (p.online ? '<span class="on-dot on" role="img" aria-label="Online"></span> Online' : '<span class="on-dot" role="img" aria-label="Offline"></span> <span class="muted">Offline</span>');
+const onlineCount = (ps) => `${ps.filter((p) => p.online).length} of ${ps.length} online`;
+
+function playersPage(v) {
+  const ps = arr(v.participants);
+  const rows = ps.map((p) => `<tr><td>${esc(p.admission_id)}</td><td>${esc(p.name)}</td><td>${onlineDot(p)}</td><td>${esc(p.status)}</td><td>${esc(p.company ?? '')} ${esc(p.role ?? '')}</td></tr>`).join('');
+  return ['sec-players', 'Players online', `<section class="card" id="sec-players"><h2>Players</h2><p>${onlineCount(ps)}</p>
+  <table><thead><tr><th>ID</th><th>Name</th><th>Online</th><th>Status</th><th>Seat</th></tr></thead><tbody>${rows}</tbody></table></section>`];
+}
+
+function lobbyPages(v, ui) {
   const ps = arr(v.participants);
   const seated = ps.filter((p) => p.status === 'lobby' && p.company && p.role).length;
-  const rows = ps.map((p) => `<tr><td>${esc(p.admission_id)}</td><td>${esc(p.name)}</td><td>${esc(p.status)}</td>
+  const rows = ps.map((p) => `<tr><td>${esc(p.admission_id)}</td><td>${esc(p.name)}</td><td>${onlineDot(p)}</td><td>${esc(p.status)}</td>
     <td>${p.status === 'lobby' ? seatSelect(p) : `${esc(p.company ?? '')} ${esc(p.role ?? '')}`}</td></tr>`).join('');
   const problems = arr(v.problems).map((p) => `<option value="${esc(p.id)}">${esc(p.id)}. ${esc(p.title)}</option>`).join('');
-  return `<section class="card" id="sec-roster"><h2>Roster</h2>
+  return [
+    ['sec-roster', 'Roster', `<section class="card" id="sec-roster"><h2>Roster</h2>
   <p><a href="/join" target="_blank" rel="noopener" id="join-sign">Open the join sign</a></p>
   <textarea id="roster" rows="4" placeholder="admission_id,name (one per line)" aria-label="Roster"></textarea>
   <input type="file" id="roster-file" accept=".csv,.txt,text/csv,text/plain" aria-label="Roster file">
   <button id="import"${dis(ui)}>Import roster</button>
   ${importSummary(ui.importResult)}
-  <p><input id="add-id" placeholder="Admission ID" aria-label="Admission ID"> <input id="add-name" placeholder="Name" aria-label="Name"> <button id="add"${dis(ui)}>Add participant</button></p></section>
-  <section class="card" id="sec-lobby"><h2>Lobby</h2><p>${seated} of 10 seats filled</p>
-  <table><thead><tr><th>ID</th><th>Name</th><th>Status</th><th>Seat</th></tr></thead><tbody>${rows}</tbody></table></section>
-  ${seatBoards(v)}
-  <section class="card" id="sec-start"><h2>Start</h2><label>Problem statement <select id="problem">${problems}</select></label>
+  <p><input id="add-id" placeholder="Admission ID" aria-label="Admission ID"> <input id="add-name" placeholder="Name" aria-label="Name"> <button id="add"${dis(ui)}>Add participant</button></p></section>`],
+    ['sec-lobby', 'Lobby & roles', `<section class="card" id="sec-lobby"><h2>Lobby</h2><p>${seated} of 10 seats filled. ${onlineCount(ps)}</p>
+  <table><thead><tr><th>ID</th><th>Name</th><th>Online</th><th>Status</th><th>Seat</th></tr></thead><tbody>${rows}</tbody></table></section>
+  ${seatBoards(v)}`],
+    ['sec-start', 'Start', `<section class="card" id="sec-start"><h2>Start</h2><label>Problem statement <select id="problem">${problems}</select></label>
   ${ui.confirm === 'start_game'
     ? `<span class="confirm">The clock starts for everyone. <button id="start-yes" class="danger"${dis(ui)}>Yes, start game</button><button data-confirm="">Cancel</button></span>`
-    : `<button id="start" class="primary" data-confirm="start_game"${dis(ui)}>Start game</button>`}</section>`;
+    : `<button id="start" class="primary" data-confirm="start_game"${dis(ui)}>Start game</button>`}</section>`],
+  ];
 }
 
 function panel(name, c, ideas) {
@@ -103,7 +115,7 @@ const confirmButton = (label, action, ui) => (ui.confirm === action
 
 const EVENT_NAMES = { demand_surge: 'Demand Surge', demand_slump: 'Demand Slump', shop_sale: 'Shop Sale' };
 
-function competitionControls(g, ui) {
+function competitionPages(g, ui) {
   const eventPart = g.eventUsed
     ? `<p>Market event. Used: ${esc(EVENT_NAMES[g.eventUsed] ?? g.eventUsed)}</p>`
     : ui.confirm && ui.confirm.startsWith('event:') && Object.hasOwn(EVENT_NAMES, ui.confirm.slice(6))
@@ -119,10 +131,14 @@ function competitionControls(g, ui) {
       <label for="inj-coins">Coins (1 to 500) <input id="inj-coins" type="number" min="1" max="500" step="1" value="${esc(d ? d.coins : '')}"></label>
       <button id="inj-ask"${dis(ui)}>Inject coins</button></p>`;
   const log = arr(g.attacks);
-  const logPart = `<h3 id="sec-attacks">Attack log</h3>${log.length
+  const logPart = log.length
     ? `<ul>${log.map((a) => `<li>${esc(a.name)}: Company ${esc(a.attacker)} against ${esc(a.victim)}, cost ${esc(a.cost)}${a.blocked ? ', blocked by a shield' : ''}</li>`).join('')}</ul>`
-    : '<p class="muted">No attacks yet.</p>'}`;
-  return `<section class="card" id="sec-event"><h2>Competition controls</h2><div id="sec-inject"></div>${eventPart}${injPart}${logPart}</section>`;
+    : '<p class="muted">No attacks yet.</p>';
+  return [
+    ['sec-attacks', 'Attacks', `<section class="card" id="sec-attacks"><h2>Attack log</h2>${logPart}</section>`],
+    ['sec-event', 'Market event', `<section class="card" id="sec-event"><h2>Competition controls</h2>${eventPart}</section>`],
+    ['sec-inject', 'Coin injection', `<section class="card" id="sec-inject"><h2>Coin injection</h2>${injPart}</section>`],
+  ];
 }
 
 function seatTools(v, ui) {
@@ -161,28 +177,25 @@ function downloadsPanel(d) {
   ${games.length ? `<ul>${games.map(row).join('')}</ul>` : '<p class="muted">No games yet.</p>'}</section>`;
 }
 
-const NAV = [
-  ['sec-roster', 'Roster'], ['sec-lobby', 'Lobby & roles'], ['sec-start', 'Start'],
-  ['sec-controls', 'Game control'], ['sec-companies', 'Live monitor'],
-  ['sec-attacks', 'Attacks'], ['sec-event', 'Market event'], ['sec-inject', 'Coin injection'], ['sec-results', 'Results'], ['downloads', 'Downloads']
-];
-
-function shell(inner) {
-  const links = NAV.filter(([id]) => inner.includes(`id="${id}"`)).map(([id, label]) => `<a href="#${id}">${label}</a>`).join('');
+// pages: [[id, label, html]]. With ui.page set (the URL hash), only that page is shown; without it, every page.
+function shell(head, pages, current) {
+  const links = pages.map(([id, label]) => `<a href="#${id}"${id === current ? ' class="on" aria-current="page"' : ''}>${label}</a>`).join('');
+  const body = pages.filter(([id, , html]) => current === null || id === current).map(([, , html]) => html).join('');
   return `<div class="frame"><div class="brandbox">${logo()}</div>
   <div class="head"><p class="h1">Future <b>Makers</b></p><p class="sub2">Startup Showdown</p></div>
   <nav class="side" aria-label="Organizer sections"><p class="side-who">Organizer panel</p>${links}</nav>
-  <div class="desk">${inner}</div></div>`;
+  <div class="desk">${head.top}<main>${head.notes}${body}</main></div></div>`;
 }
 
 function renderOrganizerInner(v, ui = {}) {
-  if (!v || typeof v !== 'object') return '<main><p class="error">No data.</p></main>';
+  if (!v || typeof v !== 'object') return { top: '', notes: '', pages: [['sec-none', 'Organizer', '<p class="error">No data.</p>']] };
   ui = ui || {};
   const off = ui.offline ? renderOffline() : '';
   const err = off + (ui.error ? `<p class="error" role="alert" id="org-error">${esc(ui.error)}</p>` : '');
   const rehearsal = Number(v.rehearsalSpeed) > 1
     ? `<p class="warn" id="rehearsal-banner" role="alert">REHEARSAL SPEED x${esc(v.rehearsalSpeed)} — NOT FOR THE EVENT</p>` : '';
-  if (!v.game) return `<main>${rehearsal}${err}${backupLine(v.backup)}${lobby(v, ui)}${downloadsPanel(v.downloads)}</main>`;
+  const downloads = ['downloads', 'Downloads', downloadsPanel(v.downloads)];
+  if (!v.game) return { top: '', notes: `${rehearsal}${err}${backupLine(v.backup)}`, pages: [...lobbyPages(v, ui), downloads] };
   const clock = v.game.clock ?? { phase: '?', remainingSec: 0 };
   const companies = v.game.companies ?? {};
   const stuck = arr(v.game.stuck);
@@ -192,12 +205,29 @@ function renderOrganizerInner(v, ui = {}) {
   ${clock.phase === 'ideation' ? confirmButton('end ideation early', 'end_ideation_early', ui) : ''}
   ${['briefing', 'ideation', 'shop', 'summary'].includes(clock.phase)
     ? `<p class="muted">Rehearsal and testing only:</p>${confirmButton('skip to next phase', 'skip_phase', ui)}` : ''}
-  ${['ideation', 'briefing', 'shop', 'summary'].includes(clock.phase) ? '' : '<p class="muted">The clock runs this phase on its own.</p>'}</section>`;
-  return `<header class="bar"><span>Game ${esc(v.game.id)}</span><span class="phase">${esc(clock.phase)}</span><span class="timer"><span class="pill"><span id="clock">${fmtClock(clock.remainingSec)}</span></span></span></header>
-  <main>${rehearsal}${banner}${err}${backupLine(v.backup)}${controls}${clock.phase === 'briefing' ? seatTools(v, ui) : ''}${clock.phase === 'competition' ? competitionControls(v.game, ui) : ''}${resultsControls(v.game, ui)}${downloadsPanel(v.downloads)}</main>
-  <main class="two" id="sec-companies">${panel('A', companies.A, v.game.ideas)}${panel('B', companies.B, v.game.ideas)}</main>`;
+  ${['ideation', 'briefing', 'shop', 'summary'].includes(clock.phase) ? '' : '<p class="muted">The clock runs this phase on its own.</p>'}
+  <h3>Reset</h3><p class="muted">Players stay connected and keep their teams.</p>
+  <p>${confirmButton('restart this stage', 'reset_stage', ui)} ${confirmButton('reset whole game', 'reset_game', ui)}</p></section>`;
+  const top = `<header class="bar"><span>Game ${esc(v.game.id)}</span><span class="phase">${esc(clock.phase)}</span><span class="timer"><span class="pill"><span id="clock">${fmtClock(clock.remainingSec)}</span></span></span></header>`;
+  const live = `<div class="two" id="sec-companies">${panel('A', companies.A, v.game.ideas)}${panel('B', companies.B, v.game.ideas)}</div>`;
+  return {
+    top,
+    notes: `${rehearsal}${banner}${err}${backupLine(v.backup)}`,
+    pages: [
+      ['sec-controls', 'Game control', controls + (clock.phase === 'briefing' ? seatTools(v, ui) : '')],
+      ['sec-companies', 'Live monitor', live],
+      ...(clock.phase === 'competition' ? competitionPages(v.game, ui) : []),
+      playersPage(v),
+      ['sec-results', 'Results', resultsControls(v.game, ui)],
+      downloads,
+    ],
+  };
 }
 
 export function renderOrganizer(v, ui = {}) {
-  return shell(renderOrganizerInner(v, ui));
+  const { top, notes, pages } = renderOrganizerInner(v, ui);
+  const want = ui && ui.page;
+  // An unknown or missing page in the URL falls back to the first one; no ui.page at all shows everything.
+  const current = want === undefined ? null : (pages.some(([id]) => id === want) ? want : pages[0][0]);
+  return shell({ top, notes }, pages, current);
 }

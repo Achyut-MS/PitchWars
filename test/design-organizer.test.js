@@ -33,7 +33,7 @@ test('malformed views still do not throw inside the frame', () => {
 
 test('the running game shows both companies in their own colours with the VS layout', () => {
   const h = renderOrganizer(ORGANIZER['org-running']);
-  assert.match(h, /<main class="two" id="sec-companies"><section class="card company" data-company="A"><h2><svg class="mark"[^]*Company A<\/h2>/);
+  assert.match(h, /<div class="two" id="sec-companies"><section class="card company" data-company="A"><h2><svg class="mark"[^]*Company A<\/h2>/);
   assert.match(h, /<section class="card company" data-company="B">/);
   assert.match(h, /<span class="timer"><span class="pill"><span id="clock">4:05<\/span><\/span><\/span>/);
   assert.equal(h.includes('role="alert"'), false);

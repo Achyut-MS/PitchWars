@@ -233,3 +233,20 @@ test('rehearsal speed shows a persistent banner in the lobby and in a running ga
     assert.match(renderOrganizer(v), /REHEARSAL SPEED x10 — NOT FOR THE EVENT/);
   }
 });
+
+test('with ui.page set only that page is shown, and the nav links to every page', () => {
+  const v = running('competition');
+  const html = renderOrganizer(v, { page: 'sec-attacks' });
+  assert.match(html, /id="sec-attacks"/);
+  for (const gone of ['id="sec-event"', 'id="sec-inject"', 'id="sec-companies"', 'id="sec-results"']) assert.equal(html.includes(gone), false, gone);
+  for (const id of ['sec-controls', 'sec-companies', 'sec-attacks', 'sec-event', 'sec-inject', 'sec-results', 'downloads']) assert.ok(html.includes(`href="#${id}"`), id);
+  assert.match(html, /class="on" aria-current="page">Attacks</);
+});
+
+test('an unknown or empty page falls back to the first page', () => {
+  for (const page of ['', 'nope']) {
+    const html = renderOrganizer(running('competition'), { page });
+    assert.match(html, /id="sec-controls"/);
+    assert.equal(html.includes('id="sec-companies"'), false);
+  }
+});

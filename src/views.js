@@ -217,7 +217,9 @@ function downloadsList(db) {
 }
 
 export function organizerView(ctx, cache = null) {
-  const participants = prep(ctx.db, 'SELECT admission_id, name, status, company, role, game_id FROM participants ORDER BY admission_id').all();
+  const online = ctx.online ? ctx.online() : new Set();
+  const participants = prep(ctx.db, 'SELECT admission_id, name, status, company, role, game_id FROM participants ORDER BY admission_id').all()
+    .map((p) => ({ ...p, online: online.has(p.admission_id) }));
   const problems = ctx.data.problems.map(({ id, title }) => ({ id, title }));
   const game = activeGame(ctx.db);
   const backup = ctx.backupStatus ? ctx.backupStatus() : null;

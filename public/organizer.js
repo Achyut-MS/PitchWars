@@ -15,7 +15,8 @@ let pointerDown = false;
 let downAt = 0;
 let pendingTimer = null;
 let token = null; // download token from the organizer welcome; memory only, never put in the DOM
-const ui = { injectDraft: null, importResult: null, confirm: null, error: '', offline: true };
+const pageFromHash = () => { try { return decodeURIComponent(location.hash.slice(1)) || null; } catch { return null; } };
+const ui = { page: pageFromHash() ?? '', injectDraft: null, importResult: null, confirm: null, error: '', offline: true };
 try { password = sessionStorage.getItem('orgPassword'); } catch { /* ignore */ }
 
 // Returns false (and shows why) when the message could not be sent: nothing is dropped silently.
@@ -47,7 +48,7 @@ function paint() {
 // force: the UI itself changed (confirm, banner, error). Otherwise skip identical views and wait out a touch.
 function draw(force = false) {
   if (!view) return;
-  const key = viewKey(view) + JSON.stringify([ui.confirm, ui.error, ui.offline, ui.importResult, ui.injectDraft]);
+  const key = viewKey(view) + JSON.stringify([ui.page, ui.confirm, ui.error, ui.offline, ui.importResult, ui.injectDraft]);
   const d = redrawDecision({ changed: force || key !== shownKey, pointerDown: force ? false : pointerDown, downAt, now: Date.now() });
   if (d.action === 'skip') { guard.release(); return; }
   if (d.action === 'defer') { clearTimeout(pendingTimer); pendingTimer = setTimeout(() => draw(), d.wait); return; }
@@ -55,7 +56,14 @@ function draw(force = false) {
   paint();
 }
 
-function showLogin(msg) { view = null; shownKey = null; root.innerHTML = renderOrganizerLogin(msg); }
+const logoutBtn = document.getElementById('logout');
+const showLogout = (on) => { if (logoutBtn) logoutBtn.hidden = !on; };
+logoutBtn?.addEventListener('click', () => {
+  try { sessionStorage.removeItem('orgPassword'); } catch { /* ignore */ }
+  location.reload(); // a fresh page, no stored password: the login screen
+});
+
+function showLogin(msg) { showLogout(false); view = null; shownKey = null; root.innerHTML = renderOrganizerLogin(msg); }
 
 function onMessage(m) {
   if (!m || typeof m !== 'object') return;
@@ -63,6 +71,7 @@ function onMessage(m) {
   else if (m.type === 'state') {
     if (!m.view || typeof m.view !== 'object') return;
     view = m.view;
+    showLogout(true);
     syncedFor = null;
     phaseShown = view.game && view.game.clock ? view.game.clock.phase : null;
     if (m.result && Array.isArray(m.result.rejected)) ui.importResult = m.result;
@@ -173,6 +182,8 @@ document.addEventListener('change', (e) => {
   const role = (sel.find((s) => s.dataset.field === 'role') || {}).value;
   if (company && role) send({ type: 'assign', admissionId: a, company, role });
 });
+
+window.addEventListener('hashchange', () => { ui.page = pageFromHash() ?? ''; draw(true); window.scrollTo(0, 0); });
 
 root.innerHTML = renderConnecting();
 connect();

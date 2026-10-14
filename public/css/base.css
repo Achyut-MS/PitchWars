@@ -151,3 +151,9 @@ button.join:active { transform: translateY(8px); box-shadow: 0 0 0 var(--ink); }
 #toast:empty { display: none; }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+
+/* Log out: fixed top right on every signed-in screen; the header strips leave room for it */
+.logout { position: fixed; top: 8px; right: 10px; z-index: 30; min-height: 0; padding: 4px 10px; font: 700 .75rem/1.2 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.logout[hidden] { display: none; }
+body:has(.logout:not([hidden])) header.bar { padding-right: 96px; }
+body:has(.logout:not([hidden])) .topbar { padding-right: 96px; }
