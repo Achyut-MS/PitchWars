@@ -374,7 +374,9 @@ test('pushing to 80 sessions stays fast', async () => {
   const o = await organizer(url);
   await runningGame(o, setT);
   const socks = [];
-  for (let i = 0; i < 80; i++) { const w = await connect(url); await ask(w, { type: 'login', admissionId: `S${i % 10}` }); socks.push(w); }
+  // One device per account, so 80 sessions need 80 accounts.
+  for (let i = 12; i < 80; i++) await ask(o, { type: 'add_participant', admissionId: `S${i}`, name: `Player ${i}` });
+  for (let i = 0; i < 80; i++) { const w = await connect(url); await ask(w, { type: 'login', admissionId: `S${i}` }); socks.push(w); }
   setT(1000 + 370_000); // shop: the tick auto-picks ideas, so every view carries the full catalog
   const t0 = performance.now();
   app.tickAll(); // runs the ideation hook, then pushes to all 80 + organizer

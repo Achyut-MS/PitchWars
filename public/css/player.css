@@ -172,6 +172,12 @@ main.results { display: grid; gap: 18px; max-width: 960px; }
 main.results > * + * { margin-top: 0; }
 main.results .card svg { width: 100%; height: auto; display: block; }
 
+/* another device asks to sign in: sits above everything until answered */
+#approve { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--ink) 55%, transparent); }
+#approve[hidden] { display: none; }
+.approve-box { max-width: 420px; background: var(--paper); border: var(--line-thick) solid var(--ink); border-radius: 12px; padding: 20px; box-shadow: 6px 6px 0 var(--ink); }
+.approve-box h2 { margin-top: 0; }
+
 .puzzle-rules { margin: 8px 0; }
 .puzzle-rules summary { cursor: pointer; font-weight: 700; }
 .puzzle-rules ul { margin: 6px 0 0; padding-left: 20px; }

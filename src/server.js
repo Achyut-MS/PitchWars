@@ -15,7 +15,7 @@ import { staticHandler } from './static.js';
 import { runDirector } from './director.js';
 import { logEvent } from './events.js';
 import { signPage, joinConfigFromEnv } from './sign.js';
-import { importRoster, addParticipant } from './roster.js';
+import { importRoster, addParticipant, normId } from './roster.js';
 import { assign, unassign, startGame } from './lobby.js';
 import { swapSeats, replacePlayer } from './seats.js';
 import { castVote, pickIdea, endIdeationNow } from './ideation.js';
@@ -277,13 +277,75 @@ export function createApp({
   // (type errors, database errors) is not shown to the user.
   const errorText = (e) => (e && e.constructor === Error ? e.message : 'bad_message');
 
+  // One live device per account. A second device that logs in waits while the first is asked to allow it.
+  const LOGIN_ASK_MS = 30_000;
+  const pendingLogins = new Map(); // admissionId -> { ws, deviceId, timer }
+  const liveSessions = (id, except) => [...sessions].filter(([w, s]) => w !== except && s.kind === 'participant' && s.admissionId === id && w.readyState === 1);
+  const tell = (list, msg) => { for (const [w] of list) send(w, msg); };
+
+  function finishLogin(ws, id, deviceId) {
+    const r = participantLogin(db, id, now());
+    if (!r.ok) return send(ws, { type: 'error', error: r.error });
+    sessions.set(ws, { kind: 'participant', admissionId: r.participant.admissionId, deviceId });
+    markDirty();
+    return send(ws, { type: 'welcome', view: r.view, participant: r.participant });
+  }
+
+  function resolveLogin(id, allow, reason = 'login_denied') {
+    const p = pendingLogins.get(id);
+    if (!p) return;
+    pendingLogins.delete(id);
+    clearTimer(p.timer);
+    const old = liveSessions(id, p.ws);
+    if (allow && p.ws.readyState === 1) {
+      tell(old, { type: 'logged_out_elsewhere' });
+      for (const [w] of old) endSession(w);
+      finishLogin(p.ws, id, p.deviceId);
+    } else {
+      tell(old, { type: 'login_request_end' });
+      if (p.ws.readyState === 1) send(p.ws, { type: 'error', error: reason });
+    }
+  }
+
+  // The waiting device went away: drop its request and clear the question on the other device.
+  function cancelPendingFor(ws) {
+    for (const [id, p] of pendingLogins) {
+      if (p.ws !== ws) continue;
+      pendingLogins.delete(id);
+      clearTimer(p.timer);
+      tell(liveSessions(id, ws), { type: 'login_request_end' });
+    }
+  }
+
+  function participantLoginMessage(ws, msg) {
+    if (typeof msg.admissionId !== 'string') return send(ws, { type: 'error', error: 'bad_message' });
+    const id = normId(msg.admissionId);
+    if (!getStatus.get(id)) return send(ws, { type: 'error', error: 'unknown_id' });
+    const deviceId = typeof msg.deviceId === 'string' && msg.deviceId.length <= 64 ? msg.deviceId : null;
+    const mine = sessions.get(ws);
+    if (mine && mine.kind === 'participant' && mine.admissionId !== id) endSession(ws);
+    const others = liveSessions(id, ws);
+    // The same device logging in again (reload, reconnect) simply takes over its own old connection.
+    const same = others.filter(([, s]) => deviceId && s.deviceId === deviceId);
+    if (same.length) { tell(same, { type: 'logged_out_elsewhere' }); for (const [w] of same) endSession(w); }
+    if (!liveSessions(id, ws).length) return finishLogin(ws, id, deviceId);
+    if (pendingLogins.has(id)) return send(ws, { type: 'error', error: 'login_busy' });
+    const timer = setTimer(() => { try { resolveLogin(id, false, 'login_timeout'); } catch (e) { console.error('login timeout failed:', e); } }, LOGIN_ASK_MS);
+    pendingLogins.set(id, { ws, deviceId, timer });
+    tell(liveSessions(id, ws), { type: 'login_request' });
+    return send(ws, { type: 'login_pending' });
+  }
+
   // Forgets the socket's session and, for a participant, logs one `disconnect`. Never throws;
   // a socket with no session (unauthenticated, organizer, already ended) logs nothing.
   function endSession(ws) {
     const s = sessions.get(ws);
     sessions.delete(ws);
+    cancelPendingFor(ws);
     if (!s || s.kind !== 'participant') return;
     markDirty(); // the organizer's online list changes
+    // The device being asked is gone: nobody is left to say no, so the waiting device gets in.
+    if (pendingLogins.has(s.admissionId) && !liveSessions(s.admissionId, null).length) resolveLogin(s.admissionId, true);
     try {
       const p = getStatus.get(s.admissionId);
       logEvent(db, { ts: now(), gameId: p ? p.game_id : null, admissionId: s.admissionId, type: 'disconnect' });
@@ -338,14 +400,7 @@ export function createApp({
     }
     if (!msg || typeof msg !== 'object' || typeof msg.type !== 'string') return send(ws, { type: 'error', error: 'bad_message' });
 
-    if (msg.type === 'login') {
-      if (typeof msg.admissionId !== 'string') return send(ws, { type: 'error', error: 'bad_message' });
-      const r = participantLogin(db, msg.admissionId, now());
-      if (!r.ok) return send(ws, { type: 'error', error: r.error });
-      sessions.set(ws, { kind: 'participant', admissionId: r.participant.admissionId });
-      markDirty();
-      return send(ws, { type: 'welcome', view: r.view, participant: r.participant });
-    }
+    if (msg.type === 'login') return participantLoginMessage(ws, msg);
     if (msg.type === 'organizer') {
       if (typeof msg.password !== 'string') return send(ws, { type: 'error', error: 'bad_message' });
       const r = organizerAttempt(ws, msg.password);
@@ -360,6 +415,10 @@ export function createApp({
     const s = sessions.get(ws);
     if (!s) return send(ws, { type: 'error', error: 'bad_message' });
     if (msg.type === 'sync') return pushAll(ws);
+    if (msg.type === 'login_decision') {
+      if (s.kind === 'participant' && pendingLogins.has(s.admissionId)) resolveLogin(s.admissionId, msg.allow === true);
+      return undefined;
+    }
 
     let result;
     try {

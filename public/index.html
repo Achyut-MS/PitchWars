@@ -14,6 +14,10 @@
   <div id="conn"></div>
   <div id="app"><main><p>Connecting...</p></main></div>
   <button id="logout" class="logout" type="button" hidden>Log out</button>
+  <div id="approve" role="alertdialog" aria-labelledby="approve-title" hidden>
+    <div class="approve-box"><h2 id="approve-title">New sign-in</h2><p>Another device is trying to sign in to this account. If you allow it, this device is signed out.</p>
+    <p><button id="approve-yes" type="button" class="primary">Allow</button> <button id="approve-no" type="button">Deny</button></p></div>
+  </div>
   <div id="toast" role="alert"></div>
   <script type="module" src="/app.js"></script>
 </body>

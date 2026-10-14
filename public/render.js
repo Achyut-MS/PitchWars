@@ -6,6 +6,7 @@ export const esc = (s) =>
 export const plural = (n, word) => `${n} ${word}${Number(n) === 1 ? '' : 's'}`;
 
 export const renderConnecting = () => '<main><section class="card"><p>Connecting...</p></section></main>';
+export const renderWaiting = () => '<main><section class="card"><h2>Waiting for approval</h2><p>This account is signed in on another device. Allow the sign-in there to continue. You have 30 seconds.</p></section></main>';
 export const renderOffline = () => '<p class="offline" role="alert">Offline - reconnecting...</p>';
 
 export const fmtClock = (sec) => {

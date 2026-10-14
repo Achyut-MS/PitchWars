@@ -1,4 +1,4 @@
-import { renderLogin, renderScreen, renderConnecting, renderOffline, fmtClock, clockClass } from './render.js';
+import { renderLogin, renderScreen, renderConnecting, renderWaiting, renderOffline, fmtClock, clockClass } from './render.js';
 import { humanError, viewKey, createSendGuard, redrawDecision, createConfirm, createPuzzleSession, puzzleNote, puzzleResultAction } from './glue.js';
 import { UI } from './puzzles/ui.js';
 
@@ -20,6 +20,16 @@ let downAt = 0;
 let pending = null; // a redraw waiting for the finger to lift
 let pendingTimer = null;
 let lastError = '';
+let deviceId = null; // names this browser tab, so reloading it never counts as "another device"
+try {
+  deviceId = sessionStorage.getItem('deviceId');
+  if (!deviceId) { deviceId = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()).slice(0, 40); sessionStorage.setItem('deviceId', deviceId); }
+} catch { deviceId = deviceId || String(Math.random()).slice(2, 14); }
+const approve = document.getElementById('approve');
+const showApprove = (on) => { if (approve) approve.hidden = !on; };
+const answer = (allow) => { showApprove(false); sendMsg({ type: 'login_decision', allow }); };
+document.getElementById('approve-yes')?.addEventListener('click', () => answer(true));
+document.getElementById('approve-no')?.addEventListener('click', () => answer(false));
 const puzzle = createPuzzleSession(UI); // local tap state, kept across redraws, reset when the puzzle id changes
 let puzzleView = null; // the open puzzle from the latest state push
 let noteKind = null;
@@ -123,6 +133,18 @@ function onMessage(m) {
     }
     lastError = '';
     sendMsg({ type: 'sync' });
+  } else if (m.type === 'login_pending') {
+    paint(renderWaiting());
+  } else if (m.type === 'login_request') {
+    showApprove(true);
+  } else if (m.type === 'login_request_end') {
+    showApprove(false);
+  } else if (m.type === 'logged_out_elsewhere') {
+    id = null;
+    try { sessionStorage.removeItem('admissionId'); } catch { /* ignore */ }
+    showApprove(false);
+    lastError = 'You were signed out because this account signed in on another device.';
+    showLogin(lastError);
   } else if (m.type === 'state') {
     syncedFor = null;
     onState(m.view);
@@ -147,7 +169,7 @@ function onMessage(m) {
   } else if (m.type === 'error') {
     const e = typeof m.error === 'string' ? m.error : '';
     guard.release();
-    if (e === 'unknown_id') {
+    if (e === 'unknown_id' || e === 'login_denied' || e === 'login_timeout' || e === 'login_busy') {
       id = null;
       try { sessionStorage.removeItem('admissionId'); } catch { /* ignore */ }
       lastError = humanError(e);
@@ -167,7 +189,7 @@ function connect() {
   ws.onopen = () => {
     retry = 0;
     setOnline(true);
-    if (id) sendMsg({ type: 'login', admissionId: id });
+    if (id) sendMsg({ type: 'login', admissionId: id, deviceId });
     else showLogin(lastError);
   };
   ws.onclose = () => {
@@ -187,7 +209,7 @@ document.addEventListener('submit', (e) => {
   const v = new FormData(e.target).get('id');
   if (typeof v !== 'string' || !v.trim()) return;
   if (!online) { showToast('Offline - reconnecting...'); return; }
-  lastError = ''; id = v.trim(); sendMsg({ type: 'login', admissionId: id });
+  lastError = ''; id = v.trim(); sendMsg({ type: 'login', admissionId: id, deviceId });
 });
 
 document.addEventListener('pointerdown', () => { pointerDown = true; downAt = Date.now(); }, true);

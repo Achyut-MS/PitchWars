@@ -121,7 +121,9 @@ test('performance: 80 sessions, a full tick plus coalesced push stays under 1 s'
   try {
     own(env, 'A', 'O03', 150);
     const extra = [];
-    for (let i = 0; i < 70; i++) { const c = await env.mk(); await c.ask({ type: 'login', admissionId: `S${i % 10}` }); extra.push(c); }
+    // One device per account, so 70 more sessions need 70 more accounts.
+    for (let i = 0; i < 70; i++) await env.o.ask({ type: 'add_participant', admissionId: `X${i}`, name: `Extra ${i}` });
+    for (let i = 0; i < 70; i++) { const c = await env.mk(); await c.ask({ type: 'login', admissionId: `X${i}` }); extra.push(c); }
     assert.equal(env.app.wss.clients.size, 81);
     env.app.tickAll();
     let worst = 0;
@@ -133,7 +135,7 @@ test('performance: 80 sessions, a full tick plus coalesced push stays under 1 s'
     }
     assert.ok(worst < 1000, `worst tick ${worst.toFixed(1)} ms`);
     env.app.flush();
-    await waitFor(() => extra[0].view?.competition).catch(() => {});
-    assert.ok(extra[0].view.competition);
+    await waitFor(() => env.p.S0.view?.competition).catch(() => {});
+    assert.ok(env.p.S0.view.competition);
   } finally { await close(env); }
 });

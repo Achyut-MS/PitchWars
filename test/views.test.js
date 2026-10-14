@@ -49,6 +49,9 @@ test('the shop view marks owned, requested and waiting items and who can act', (
   assert.equal(cmo.open, true);
   assert.equal(cmo.catalog.find((i) => i.id === 'M01-N').state, 'requested');
   assert.equal(cmo.catalog.find((i) => i.id === 'M01-M').canRequest, false); // same family is already requested
+  for (const other of ['M01-M', 'M01-P'].filter((x) => cmo.catalog.some((i) => i.id === x))) {
+    assert.equal(cmo.catalog.find((i) => i.id === other).state, 'wait', `${other} is not itself requested`);
+  }
   assert.equal(cmo.catalog.find((i) => i.id === 'M04-S').canRequest, true);
   assert.equal(cmo.catalog.find((i) => i.id === 'F01-B').canRequest, false); // not my section
   assert.equal(cmo.catalog.find((i) => i.id === 'SC01'), undefined); // software part, hardware idea

@@ -250,6 +250,10 @@ test('a whole game from the roster to the Excel export, then a second game', { t
     assert.equal(db.prepare("SELECT COUNT(*) AS n FROM participants WHERE status='lobby'").get().n, 2);
 
     // A completed player logging in later gets their OWN game's graphs.
+    // One device per account: the first S7 device goes away before S7 signs in again.
+    const before7 = app.wss.clients.size;
+    p[7].ws.terminate();
+    await waitFor(() => app.wss.clients.size < before7);
     const late = await bot();
     const lw = (await late.say({ type: 'login', admissionId: 'S7' })).find((m) => m.type === 'welcome');
     assert.equal(lw.view, 'graphs');

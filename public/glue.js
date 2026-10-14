@@ -4,6 +4,9 @@ const MESSAGES = {
   too_many_attempts: 'Too many tries, wait a minute',
   unknown_id: 'That ID is not on the list',
   bad_message: 'Something went wrong. Please try again',
+  login_denied: 'The other device did not allow it. That account is in use.',
+  login_timeout: 'The other device did not answer in time. That account is in use.',
+  login_busy: 'Another device is already asking to sign in. Try again in a moment.',
 };
 
 export function humanError(e) {

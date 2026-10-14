@@ -55,7 +55,9 @@ function companyShop(ctx, game, company, idea, phase, cache) {
   let catalog = [];
   if (idea) {
     const owned = new Map(prep(db, 'SELECT family, item_id FROM owned WHERE game_id=? AND company=?').all(game.id, company).map((o) => [o.family, o.item_id]));
-    const open = new Set([...pendingRows, ...waitingRows].map((r) => r.family));
+    const openRows = [...pendingRows, ...waitingRows];
+    const openItems = new Set(openRows.map((r) => r.item_id));
+    const open = new Set(openRows.map((r) => r.family));
     const lastRejected = new Map();
     for (const r of prep(db, "SELECT * FROM requests WHERE game_id=? AND company=? AND status='rejected' ORDER BY decided_at DESC, id DESC").all(game.id, company)) {
       if (!lastRejected.has(r.family)) lastRejected.set(r.family, r);
@@ -68,7 +70,9 @@ function companyShop(ctx, game, company, idea, phase, cache) {
         const have = ctx.data.item(ownedId);
         if (item.tierPoints == null || item.tierPoints <= (have.tierPoints ?? 0)) state = 'owned';
       }
-      if (!state && open.has(item.family)) state = 'requested';
+      // Only the version that was asked for is "requested"; the others in its family wait for the decision.
+      if (!state && openItems.has(item.id)) state = 'requested';
+      if (!state && open.has(item.family)) { state = 'wait'; note = 'another version is already requested'; }
       if (!state) {
         const block = blockFromLast(ctx, lastRejected.get(item.family), phase);
         if (block) { state = 'wait'; note = block; } else state = 'available';
