@@ -90,9 +90,14 @@ export function createPuzzleSession(UI) {
     tap(t) { const u = ui(); if (u) state = u.apply(puzzle.puzzle, state, t); },
     render() { const u = ui(); return u ? u.render(puzzle.puzzle, state) : ''; },
     answer() { const u = ui(); return u ? u.answer(puzzle.puzzle, state) : null; },
+    reset() { const u = ui(); if (u) state = u.initial(puzzle.puzzle); },
+    get data() { return puzzle ? puzzle.puzzle : null; },
     get id() { return id; },
   };
 }
+
+// After a solve the CFO asks for the next puzzle until one is open (the state push may arrive later than the result).
+export const shouldRequestNextPuzzle = ({ wanted, puzzleOpen, phase, role } = {}) => !!wanted && !puzzleOpen && phase === 'competition' && ['CFO', 'CMO', 'COO'].includes(role);
 
 // What a puzzle_result message should do in the page: a closed puzzle (double tap, already skipped) is silent.
 export function puzzleResultAction(m) {

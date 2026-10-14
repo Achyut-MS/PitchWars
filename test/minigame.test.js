@@ -19,9 +19,12 @@ test('levels 1 and 2 pay 20 coins, levels 3 and 4 pay 40', () => {
   assert.deepEqual([1, 2, 3, 4].map(rewardFor), [20, 20, 40, 40]);
 });
 
-test('only the CFO can play, and only during the competition', () => {
+test('only the CFO, CMO and COO can play, each with its own puzzle, and only during the competition', () => {
   const h = toCompetition(makeRunning());
-  assert.throws(() => startPuzzle(h.ctx, h.game(), h.seat.A.CMO), /only the CFO/);
+  assert.throws(() => startPuzzle(h.ctx, h.game(), h.seat.A.CEO), /only the CFO, CMO and COO/);
+  assert.throws(() => startPuzzle(h.ctx, h.game(), h.seat.A.CTO), /only the CFO, CMO and COO/);
+  assert.equal(startPuzzle(h.ctx, h.game(), h.seat.A.CMO, mulberry32(5)).kind, 'logo');
+  assert.equal(startPuzzle(h.ctx, h.game(), h.seat.A.COO, mulberry32(5)).kind, 'risks');
   atSec(h, 500);
   assert.throws(() => start(h), /only open during the competition/);
 });
@@ -213,10 +216,10 @@ test('a generator that always fails falls back to another kind, never throws, ne
       assert.notEqual(row.kind, 'queens');
     }
     assert.ok(calls < 30 * 8);
-    for (const k of Object.keys(PUZZLES)) if (k !== 'tower') PUZZLES[k].generate = () => { throw new Error('boom'); };
+    for (const k of Object.keys(PUZZLES)) if (k !== 'shikaku') PUZZLES[k].generate = () => { throw new Error('boom'); };
     for (let seed = 1; seed < 20; seed++) {
       h.db.prepare('DELETE FROM puzzle_sessions').run();
-      assert.equal(start(h, seed).kind, 'tower');
+      assert.equal(start(h, seed).kind, 'shikaku');
     }
   } finally { for (const k of Object.keys(origs)) PUZZLES[k].generate = origs[k]; }
 });
@@ -244,7 +247,7 @@ test('a failed generation is not sticky: the default seed differs per attempt an
     for (const k of Object.keys(PUZZLES)) PUZZLES[k].generate = (l, r) => {
       seeds.add(r());
       if (seeds.size < 4) throw new Error('boom');
-      return origs.sets(l, r);
+      return origs.queens(l, r);
     };
     const row = startPuzzle(h.ctx, h.game(), h.seat.A.CFO);
     assert.ok(row);

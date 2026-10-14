@@ -29,9 +29,6 @@ for (const kind of KINDS) {
 
 const mutate = {
   queens: (s) => { const a = [...s]; [a[0], a[1]] = [a[1], a[0]]; return a; },
-  sets: (s) => s.map((g, i) => (i === 0 ? [g[0], g[1], s[1][2]] : i === 1 ? [g[0], g[1], s[0][2]] : g)),
-  tower: (s) => s.map((row, r) => (r === 0 ? [row[1], row[0], ...row.slice(2)] : row)),
-  mosaic: (s) => s.map((row, r) => (r === 0 ? row.map((v, c) => (c === 0 ? !v : v)) : row)),
   pipes: (s) => s.map((row, r) => (r === 0 ? row.map((v, c) => (c === 0 ? (v + 1) % 4 : v)) : row)),
   shikaku: (s) => s.slice(1),
   lits: (s) => s.slice(1),
@@ -60,16 +57,3 @@ for (const kind of KINDS) {
   });
 }
 
-test('tower: the all-hidden fallback reveals a clue that matches its own column', () => {
-  const sol = [[1, 2, 3], [2, 3, 1], [3, 1, 2]];
-  const p = { n: 3, top: [null, null, null], bottom: [null, null, null], left: [null, null, null], right: [null, null, null] };
-  PUZZLES.tower.revealTop(p, sol, 1);
-  assert.deepEqual(p.top, [null, 2, null]);
-  assert.equal(PUZZLES.tower.check(p, sol), true);
-});
-test('tower: thousands of seeds all give a puzzle its own solution passes', () => {
-  for (let level = 1; level <= 4; level++) for (let seed = 1; seed <= 2000; seed++) {
-    const { puzzle, solution } = PUZZLES.tower.generate(level, mulberry32(seed));
-    assert.equal(PUZZLES.tower.check(puzzle, solution), true, `level ${level} seed ${seed}`);
-  }
-});

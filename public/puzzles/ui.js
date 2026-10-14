@@ -2,6 +2,8 @@
 // Each puzzle: initial(puzzle) -> state, apply(puzzle, state, tap) -> state, render(puzzle, state) -> html, answer(puzzle, state) -> answer
 const cell = (r, c, cls, text = '') => `<td class="${esc(cls)}" data-cell="${r},${c}">${esc(text)}</td>`;
 const table = (rows) => `<table class="puzzle-grid">${rows.join('')}</table>`;
+// Option boards (logo brief, risk fixes): wide cells that wrap their text.
+const choiceTable = (rows) => `<table class="puzzle-grid choices">${rows.join('')}</table>`;
 const clone = (x) => JSON.parse(JSON.stringify(x));
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -11,61 +13,59 @@ const edges = (regions, r, c) => SIDES
   .filter(([, dr, dc]) => regions[r + dr] && regions[r + dr][c + dc] !== undefined && regions[r + dr][c + dc] !== regions[r][c])
   .map(([name]) => name).join(' ');
 
-const queens = {
-  initial: (p) => ({ cols: Array(p.n).fill(null) }),
-  apply: (p, s, { cell: [r, c] }) => { const n = clone(s); n.cols[r] = n.cols[r] === c ? null : c; return n; },
-  answer: (p, s) => s.cols,
-  render: (p, s) => table(p.regions.map((row, r) => `<tr>${row.map((reg, c) => cell(r, c, `reg reg-${reg} ${edges(p.regions, r, c)}${s.cols[r] === c ? ' on' : ''}`.replace(/  +/g, ' '), s.cols[r] === c ? '♛' : '')).join('')}</tr>`)),
+// Queens: a single tap marks a dot, a double tap places a queen (a second double tap on it removes it).
+// Every square a queen rules out (its row, column, region and the eight around it) is blocked: no queen goes there.
+const blockedBy = (p, cols) => {
+  const n = p.n;
+  const out = new Set();
+  cols.forEach((qc, r) => {
+    if (qc === null || qc === undefined) return;
+    for (let rr = 0; rr < n; rr++) for (let cc = 0; cc < n; cc++) {
+      if (rr === r || cc === qc || p.regions[rr][cc] === p.regions[r][qc] || (Math.abs(rr - r) <= 1 && Math.abs(cc - qc) <= 1)) out.add(`${rr},${cc}`);
+    }
+  });
+  return out;
 };
-
-const SHAPES = ['▲', '●', '■'];
-const sets = {
-  initial: () => ({ picked: [], groups: [] }),
-  apply: (p, s, { card }) => {
+const queens = {
+  initial: (p) => ({ cols: Array(p.n).fill(null), dots: [] }),
+  apply: (p, s, { cell: [r, c], clicks = 1 }) => {
     const n = clone(s);
-    const g = n.groups.findIndex((grp) => grp.includes(card));
-    if (g >= 0) { n.groups.splice(g, 1); return n; }
-    const i = n.picked.indexOf(card);
-    if (i >= 0) { n.picked.splice(i, 1); return n; }
-    n.picked.push(card);
-    if (n.picked.length === 3) { n.groups.push(n.picked); n.picked = []; }
+    const key = `${r},${c}`;
+    if (clicks === 2) {
+      if (n.cols[r] === c) { n.cols[r] = null; return n; }
+      if (blockedBy(p, n.cols).has(key)) return n;
+      n.cols[r] = c;
+      n.dots = n.dots.filter((d) => d !== key);
+      return n;
+    }
+    if (clicks !== 1 || n.cols[r] === c || blockedBy(p, n.cols).has(key)) return n;
+    n.dots = n.dots.includes(key) ? n.dots.filter((d) => d !== key) : [...n.dots, key];
     return n;
   },
-  answer: (p, s) => s.groups,
-  render: (p, s) => `<div class="cards">${p.cards.map(([shape, colour, count, fill], i) => {
-    const g = s.groups.findIndex((grp) => grp.includes(i));
-    const cls = `card c${colour} f${fill}${s.picked.includes(i) ? ' picked' : ''}${g >= 0 ? ` group g${g % 4}` : ''}`;
-    return `<button class="${cls}" data-card="${i}" aria-label="Card ${i + 1}">${SHAPES[shape].repeat(count + 1)}</button>`;
-  }).join('')}</div>`,
-};
-
-const tower = {
-  initial: (p) => ({ grid: Array.from({ length: p.n }, () => Array(p.n).fill(0)) }),
-  apply: (p, s, { cell: [r, c] }) => { const n = clone(s); n.grid[r][c] = (n.grid[r][c] + 1) % (p.n + 1); return n; },
-  answer: (p, s) => s.grid,
+  answer: (p, s) => s.cols,
   render: (p, s) => {
-    const edge = (v) => `<th>${esc(v)}</th>`;
-    const rows = [`<tr><th></th>${p.top.map(edge).join('')}<th></th></tr>`];
-    s.grid.forEach((row, r) => rows.push(`<tr>${edge(p.left[r])}${row.map((v, c) => cell(r, c, 'num', v || '')).join('')}${edge(p.right[r])}</tr>`));
-    rows.push(`<tr><th></th>${p.bottom.map(edge).join('')}<th></th></tr>`);
-    return table(rows);
+    const blocked = blockedBy(p, s.cols);
+    return table(p.regions.map((row, r) => `<tr>${row.map((reg, c) => {
+      const key = `${r},${c}`;
+      const queen = s.cols[r] === c;
+      const cls = `reg reg-${reg} ${edges(p.regions, r, c)}${queen ? ' on' : ''}${!queen && blocked.has(key) ? ' blocked' : ''}${!queen && !blocked.has(key) && s.dots.includes(key) ? ' dot' : ''}`.replace(/  +/g, ' ');
+      const text = queen ? '♛' : blocked.has(key) ? '×' : s.dots.includes(key) ? '•' : '';
+      return cell(r, c, cls, text);
+    }).join('')}</tr>`));
   },
 };
 
-const mosaic = {
-  initial: (p) => ({ grid: Array.from({ length: p.n }, () => Array(p.n).fill(false)) }),
-  apply: (p, s, { cell: [r, c] }) => { const n = clone(s); n.grid[r][c] = !n.grid[r][c]; return n; },
-  answer: (p, s) => s.grid,
-  render: (p, s) => table(s.grid.map((row, r) => `<tr>${row.map((on, c) => cell(r, c, on ? 'fill on' : 'fill', p.clues[r][c] ?? '')).join('')}</tr>`)),
-};
-
-const GLYPH = { 0: ' ', 1: '╵', 2: '╶', 3: '└', 4: '╷', 5: '│', 6: '┌', 7: '├', 8: '╴', 9: '┘', 10: '─', 11: '┴', 12: '┐', 13: '┤', 14: '┬', 15: '┼' };
 const turn = (mask, times) => { let m = mask; for (let i = 0; i < times; i++) m = ((m << 1) | (m >> 3)) & 15; return m; };
 const pipes = {
   initial: (p) => ({ turns: Array.from({ length: p.n }, () => Array(p.n).fill(0)) }),
   apply: (p, s, { cell: [r, c] }) => { const n = clone(s); n.turns[r][c] = (n.turns[r][c] + 1) % 4; return n; },
   answer: (p, s) => s.turns,
-  render: (p, s) => table(p.tiles.map((row, r) => `<tr>${row.map((t, c) => cell(r, c, 'pipe', GLYPH[turn(t, s.turns[r][c])])).join('')}</tr>`)),
+  // Each open side is drawn as a bar from the middle of the tile to its edge (CSS), so the board reads as pipes.
+  render: (p, s) => table(p.tiles.map((row, r) => `<tr>${row.map((t, c) => {
+    const m = turn(t, s.turns[r][c]);
+    const arms = [[1, 'n'], [2, 'e'], [4, 's'], [8, 'w']].filter(([bit]) => m & bit).map(([, d]) => `<span class="arm ${d}"></span>`).join('');
+    return cell(r, c, 'pipe', '').replace('</td>', `${arms}<span class="hub"></span></td>`);
+  }).join('')}</tr>`)),
 };
 
 const shikaku = {
@@ -100,5 +100,31 @@ const lits = {
   render: (p, s) => table(p.regions.map((row, r) => `<tr>${row.map((reg, c) => cell(r, c, `reg reg-${reg % 8} ${edges(p.regions, r, c)}${s.grid[r][c] ? ' on' : ''}`.replace(/  +/g, ' '), '')).join('')}</tr>`)),
 };
 
-export const UI = { queens, sets, tower, mosaic, pipes, shikaku, lits };
+// The CMO's logo brief: one row per attribute, tap an option to pick it (tap it again to clear).
+const logo = {
+  initial: (p) => ({ picks: Array(p.rows.length).fill(null) }),
+  apply: (p, s, { cell: [a, o] }) => {
+    const n = clone(s);
+    if (a < 0 || a >= p.rows.length || o < 0 || o >= p.rows[a].options.length) return n; // labels are not options
+    n.picks[a] = n.picks[a] === o ? null : o;
+    return n;
+  },
+  answer: (p, s) => s.picks,
+  render: (p, s) => `<p class="brief">${esc(p.brief)}</p>${choiceTable(p.rows.map((row, a) => `<tr>${cell(a, -1, 'label', row.label)}${row.options.map((opt, o) => cell(a, o, `opt${s.picks[a] === o ? ' on' : ''}`, opt)).join('')}</tr>`))}`,
+};
+
+// The COO's risk fixes: one row per risk, tap the fix that handles it (tap it again to clear).
+const risks = {
+  initial: (p) => ({ picks: Array(p.rows.length).fill(null) }),
+  apply: (p, s, { cell: [r, c] }) => {
+    const n = clone(s);
+    if (r < 0 || r >= p.rows.length || c < 0 || c >= p.rows[r].choices.length) return n; // labels are not choices
+    n.picks[r] = n.picks[r] === c ? null : c;
+    return n;
+  },
+  answer: (p, s) => s.picks,
+  render: (p, s) => choiceTable(p.rows.map((row, r) => `<tr>${cell(r, -1, 'label', row.text)}${row.choices.map((ch, c) => cell(r, c, `opt${s.picks[r] === c ? ' on' : ''}`, ch)).join('')}</tr>`)),
+};
+
+export const UI = { queens, pipes, shikaku, lits, logo, risks };
 export { esc };

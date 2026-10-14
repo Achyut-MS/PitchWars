@@ -8,5 +8,5 @@ test('the look stays light for phones on the Pi\'s Wi-Fi', () => {
   assert.ok(size('public/css', /\.css$/) < 60 * 1024, 'stylesheets');
   assert.ok(size('public/fonts', /\.woff2$/) < 80 * 1024, 'web fonts');
   assert.ok(statSync('public/img/icons.svg').size < 12 * 1024, 'icons');
-  assert.ok(statSync('public/img/logo.svg').size < 30 * 1024, 'logo');
+  assert.ok(statSync('public/img/logo.png').size < 80 * 1024, 'logo');
 });

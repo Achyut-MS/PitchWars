@@ -1,5 +1,5 @@
 import { renderLogin, renderScreen, renderSuperseded, renderConnecting, renderOffline, fmtClock, clockClass } from './render.js';
-import { humanError, viewKey, createSendGuard, redrawDecision, createConfirm, createPuzzleSession, shouldReconnect, puzzleNote, puzzleResultAction } from './glue.js';
+import { humanError, viewKey, createSendGuard, redrawDecision, createConfirm, createPuzzleSession, shouldReconnect, puzzleNote, puzzleResultAction, shouldRequestNextPuzzle } from './glue.js';
 import { UI } from './puzzles/ui.js';
 
 const root = document.getElementById('app');
@@ -26,6 +26,20 @@ let puzzleView = null; // the open puzzle from the latest state push
 let noteKind = null;
 try { id = sessionStorage.getItem('admissionId'); } catch { /* storage may be blocked */ }
 
+// The puzzle is checked after every tap (no Check button needed). A wrong answer changes nothing.
+const NEXT_PUZZLE_MS = 350;
+let nextPuzzleWanted = false; // set by a solve, cleared when a puzzle opens or the server refuses
+let myRole = null;
+function probePuzzleNow() {
+  if (puzzle.id === null || !online) return;
+  sendMsg({ type: 'puzzle_probe', answer: puzzle.answer() });
+}
+function requestNextPuzzle() {
+  if (!shouldRequestNextPuzzle({ wanted: nextPuzzleWanted, puzzleOpen: !!puzzleView, phase: shownPhase, role: myRole })) return;
+  sendMsg({ type: 'puzzle_next' });
+  setTimeout(requestNextPuzzle, 1000); // asks again each second until a puzzle is open
+}
+
 const sendMsg = (m) => { if (ws && ws.readyState === 1) { ws.send(typeof m === 'string' ? m : JSON.stringify(m)); return true; } return false; };
 
 function showToast(text) {
@@ -44,12 +58,28 @@ function applyOffline() {
 }
 
 // Replaces the screen but keeps typed text, focus and open sections.
+// The player's chosen tab per tab bar (keyed by scope), kept across the re-renders.
+const tabChoice = new Map();
+function applyTabs() {
+  for (const nav of root.querySelectorAll('nav.tabs[data-tabs]')) {
+    const scope = nav.dataset.tabs;
+    const want = tabChoice.get(scope) || nav.dataset.default;
+    for (const b of nav.querySelectorAll('[data-tab]')) {
+      const on = b.dataset.tab === want;
+      b.setAttribute('aria-selected', String(on));
+      b.classList.toggle('on', on);
+    }
+    for (const p of root.querySelectorAll(`[data-panel][data-scope="${scope}"]`)) p.hidden = p.dataset.panel !== want;
+  }
+}
+
 function paint(html) {
   const open = [...root.querySelectorAll('details[data-key]')].map((d) => [d.dataset.key, d.open]);
   const a = document.activeElement;
   const field = a && root.contains(a) && a.name === 'id' ? { v: a.value } : null;
   root.innerHTML = html;
   for (const [k, o] of open) { const d = [...root.querySelectorAll('details[data-key]')].find((x) => x.dataset.key === k); if (d) d.open = o; }
+  applyTabs();
   const input = root.querySelector('input[name="id"]');
   if (field && input) { input.value = field.v; input.focus(); }
   guard.release();
@@ -89,6 +119,8 @@ function onState(view) {
   shownPhase = view.screen === 'game' && view.clock ? view.clock.phase : null;
   const pz = view.competition && view.competition.puzzle;
   puzzleView = pz || null;
+  myRole = view.me ? view.me.role : null;
+  if (pz) nextPuzzleWanted = false;
   if (!pz) puzzle.sync(null);
   else if (pz.id !== puzzle.id) noteKind = null;
   const key = viewKey(view);
@@ -128,17 +160,18 @@ function onMessage(m) {
     }
   } else if (m.type === 'puzzle_result') {
     guard.release();
-    const b = document.getElementById('puzzle-submit');
-    if (b) b.disabled = !online;
     const a = puzzleResultAction(m);
     if (m.closed !== true) setNote(a.note);
     if (a.toast) showToast(a.toast);
+    // Solved: the next puzzle follows straight away, once the solved one has been shown for a moment.
+    if (m.ok === true && m.closed !== true) { nextPuzzleWanted = true; setTimeout(requestNextPuzzle, NEXT_PUZZLE_MS); }
   } else if (m.type === 'attack_result') {
     guard.release();
     showToast(m.blocked ? 'Attack blocked' : 'Attack launched');
   } else if (m.type === 'error') {
     const e = typeof m.error === 'string' ? m.error : '';
     guard.release();
+    nextPuzzleWanted = false;
     if (e === 'logged_in_elsewhere') {
       superseded = true; loggedIn = false; shownKey = null; shownPhase = null; pending = null;
       paint(renderSuperseded());
@@ -192,21 +225,16 @@ document.addEventListener('pointerup', lift, true);
 document.addEventListener('pointercancel', lift, true);
 
 document.addEventListener('click', (e) => {
+  const tab = e.target.closest && e.target.closest('[data-tab]');
+  if (tab) { tabChoice.set(tab.dataset.scope, tab.dataset.tab); applyTabs(); return; }
+  if (e.target.closest && e.target.closest('[data-back]')) { if (history.length > 1) history.back(); else location.assign('/'); return; }
   if (e.target.id === 'use-here') { superseded = false; root.innerHTML = renderConnecting(); connect(); return; }
   const slot = e.target.closest && e.target.closest('#puzzle-slot');
   if (slot) {
     const td = e.target.closest('[data-cell]');
     const card = e.target.closest('[data-card]');
-    const tap = td ? { cell: td.dataset.cell.split(',').map(Number) } : card ? { card: Number(card.dataset.card) } : null;
-    if (tap && puzzle.id !== null) { puzzle.tap(tap); slot.innerHTML = puzzle.render(); if (noteKind) setNote(null); }
-    return;
-  }
-  if (e.target.id === 'puzzle-submit') {
-    if (puzzle.id === null) return;
-    if (!online) { showToast('Offline - reconnecting. Your tap was not sent.'); return; }
-    if (!guard.allow('puzzle_submit:' + puzzle.id, Date.now())) return;
-    e.target.disabled = true;
-    if (!sendMsg({ type: 'puzzle_submit', answer: puzzle.answer() })) { e.target.disabled = false; guard.release(); showToast('Offline - reconnecting. Your tap was not sent.'); }
+    const tap = td ? { cell: td.dataset.cell.split(',').map(Number), clicks: e.detail } : card ? { card: Number(card.dataset.card) } : null;
+    if (tap && puzzle.id !== null) { puzzle.tap(tap); slot.innerHTML = puzzle.render(); if (noteKind) setNote(null); probePuzzleNow(); }
     return;
   }
   const b = e.target.closest && e.target.closest('[data-send]');

@@ -124,17 +124,15 @@ test('the competition styles cover the classes Plan 3 emits, scoped where names 
   const css = rf('public/css/player.css', 'utf8');
   for (const sel of ['.banner[class~="2min"]', '.banner[class~="30s"]', '.banner.last10', 'header.bar ~ p.notice', 'aside.hint', '.rates .meter .fill', '.rates .my-rate', '.rates .level',
     'button.attack-btn', 'button.attack-btn.armed', 'button.attack-btn[disabled]', '.launch.blocked', '.card.shield', 'p.sale-badge', 'p.locked', 'p.shop-closed']) assert.ok(css.includes(sel), sel);
-  assert.equal(/(^|[,}])\s*\.fill\s*[{,]/m.test(css), false, 'an unscoped .fill would also paint Mosaic cells');
 });
 
 test('the puzzle styles cover every class Plan 4 emits, with 44 px cells', () => {
   const css = rf('public/css/player.css', 'utf8');
-  for (const sel of ['.puzzle-grid td', '.puzzle-grid td.on', '.puzzle-grid td.bt', '.puzzle-grid td.br', '.puzzle-grid td.bb', '.puzzle-grid td.bl', '[data-card].picked', '[data-card].group', '#puzzle-slot']) {
+  for (const sel of ['.puzzle-grid td', '.puzzle-grid td.on', '.puzzle-grid td.bt', '.puzzle-grid td.br', '.puzzle-grid td.bb', '.puzzle-grid td.bl', '#puzzle-slot']) {
     assert.ok(css.includes(sel), sel);
   }
   for (let n = 0; n < 8; n++) assert.ok(css.includes(`.reg-${n}`), `reg-${n}`);
   assert.match(css, /\.puzzle-grid td, \.puzzle-grid th \{ width: 44px; height: 44px;/);
-  assert.equal(/\.card\.(c\d|f\d|picked|group)/.test(css), false, 'Sets cards are styled through [data-card], not .card');
 });
 
 test('ended before the reveal: the thank-you card only, in the own company theme', () => {

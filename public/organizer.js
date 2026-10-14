@@ -114,6 +114,19 @@ document.addEventListener('submit', (e) => {
   ws.send(JSON.stringify({ type: 'organizer', password }));
 });
 
+// Show/hide the password on the login card. Changes the input in place, so nothing is re-rendered.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest && e.target.closest('.pw-toggle');
+  if (!btn) return;
+  const input = document.getElementById(btn.getAttribute('aria-controls'));
+  if (!input) return;
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  btn.setAttribute('aria-pressed', String(show));
+  btn.textContent = show ? 'Hide' : 'Show';
+  input.focus();
+});
+
 document.addEventListener('pointerdown', () => { pointerDown = true; downAt = Date.now(); }, true);
 const lift = () => { pointerDown = false; };
 document.addEventListener('pointerup', lift, true);

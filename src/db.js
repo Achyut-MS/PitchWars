@@ -198,6 +198,10 @@ function migrate(db) {
   }
   const gameCols = new Set(db.prepare('PRAGMA table_info(games)').all().map((c) => c.name));
   if (!gameCols.has('revealed_at')) db.exec('ALTER TABLE games ADD COLUMN revealed_at INTEGER');
+  if (!gameCols.has('paused')) db.exec('ALTER TABLE games ADD COLUMN paused INTEGER NOT NULL DEFAULT 0');
+  if (!gameCols.has('paused_ms')) db.exec('ALTER TABLE games ADD COLUMN paused_ms INTEGER NOT NULL DEFAULT 0');
+  const sessionCols = new Set(db.prepare('PRAGMA table_info(puzzle_sessions)').all().map((c) => c.name));
+  if (!sessionCols.has('role')) db.exec("ALTER TABLE puzzle_sessions ADD COLUMN role TEXT NOT NULL DEFAULT 'CFO'");
   // Hints carry a stored key so one trigger can never be written twice.
   const hintCols = new Set(db.prepare('PRAGMA table_info(hints)').all().map((c) => c.name));
   if (!hintCols.has('hint_key')) db.exec('ALTER TABLE hints ADD COLUMN hint_key TEXT');

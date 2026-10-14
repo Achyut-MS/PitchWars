@@ -22,7 +22,7 @@ export const phaseOf = (p) => (PHASES.includes(p) ? p : '');
 export const companyAttr = (c) => (companyOf(c) ? ` data-company="${companyOf(c)}"` : '');
 export const companyMark = (c) => icon(companyOf(c) === 'B' ? 'i-mark-b' : 'i-mark-a', 'mark');
 
-// The logo slot. The picture is the --logo token in tokens.css (public/img/logo.svg). Not an <img>: see the Plan 2 safety test.
+// The logo slot. The picture is the --logo token in tokens.css (public/img/logo.png). Not an <img>: see the Plan 2 safety test.
 export const logo = (cls = 'logo') => `<span class="${cleanClass(cls)}" role="img" aria-label="Makerspace logo"></span>`;
 
 // The five role chips of the drafts' header, the viewer's own one highlighted.

@@ -26,14 +26,14 @@ test('an open puzzle shows its name, level, reward, a slot, check and skip', () 
   assert.match(html, /Queens/);
   assert.match(html, /20 coins/);
   assert.match(html, /id="puzzle-slot" data-puzzle-id="7" data-kind="queens"/);
-  assert.match(html, /id="puzzle-submit"/);
+  assert.equal(html.includes('id="puzzle-submit"'), false, 'the board is checked as you play; there is no Check button');
   assert.match(html, /"type":"puzzle_skip"/);
   assert.match(html, /Free skips left: 2/);
   assert.match(html, /id="puzzle-note"/);
 });
 
 test('after the free skips the skip button warns about the cost and needs a second tap', () => {
-  const html = renderScreen(cfo(open({ id: 8, kind: 'sets', name: 'Sets', level: 3, reward: 40, skipsFreeLeft: 0 })));
+  const html = renderScreen(cfo(open({ id: 8, kind: 'queens', name: 'Queens', level: 3, reward: 40, skipsFreeLeft: 0 })));
   assert.match(html, /Skipping now costs 10 coins/);
   assert.match(html, /data-confirm="1"/);
   assert.equal(/data-confirm/.test(renderScreen(cfo(open()))), false);
@@ -71,12 +71,12 @@ test('the local puzzle state survives repeated syncs and resets only when the id
   const s = createPuzzleSession(UI);
   const p = open({ puzzle: { n: 2, count: 2, regions: [[0, 0], [1, 1]] } });
   s.sync(p);
-  s.tap({ cell: [0, 1] });
+  s.tap({ cell: [0, 1], clicks: 2 });
   for (let i = 0; i < 5; i++) s.sync(JSON.parse(JSON.stringify(p))); // a push every second
   assert.deepEqual(s.answer(), [1, null]);
   s.sync({ ...p, id: 8 });
   assert.deepEqual(s.answer(), [null, null]);
-  s.tap({ cell: [1, 0] });
+  s.tap({ cell: [1, 0], clicks: 2 });
   s.sync(null);
   assert.equal(s.answer(), null);
   s.sync({ ...p, id: 8 }); // a closed puzzle's id coming back is a fresh start
@@ -85,10 +85,7 @@ test('the local puzzle state survives repeated syncs and resets only when the id
 
 test('every kind: tapping the stored solution through the panel session builds an answer check() accepts', () => {
   const taps = {
-    queens: (sol) => sol.map((c, r) => ({ cell: [r, c] })),
-    sets: (sol) => sol.flat().map((card) => ({ card })),
-    tower: (sol) => sol.flatMap((row, r) => row.flatMap((v, c) => Array(v).fill({ cell: [r, c] }))),
-    mosaic: (sol) => sol.flatMap((row, r) => row.map((on, c) => (on ? { cell: [r, c] } : null)).filter(Boolean)),
+    queens: (sol) => sol.map((c, r) => ({ cell: [r, c], clicks: 2 })),
     pipes: (sol) => sol.flatMap((row, r) => row.flatMap((t, c) => Array(t).fill({ cell: [r, c] }))),
     shikaku: (sol) => sol.flatMap((q) => [{ cell: [q.r, q.c] }, { cell: [q.r + q.h - 1, q.c + q.w - 1] }]),
     lits: (sol) => sol.map(([r, c]) => ({ cell: [r, c] })),

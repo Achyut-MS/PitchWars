@@ -9,7 +9,8 @@ import { evaluateHints } from './hints.js';
 import { WebSocketServer } from 'ws';
 import { normId } from './roster.js';
 import { participantLogin, organizerLogin } from './auth.js';
-import { activeGame } from './persist.js';
+import { activeGame, setPaused } from './persist.js';
+import { practicePuzzle, practiceCheck } from './practice.js';
 import { phaseAt } from './phases.js';
 import { loadData } from './data.js';
 import { staticHandler } from './static.js';
@@ -25,7 +26,7 @@ import { skipToNextPhase } from './skip.js';
 import { revealGame, nextGame } from './results.js';
 import { backupDb, pruneBackups } from './backup.js';
 import { viewFor, organizerView } from './views.js';
-import { startPuzzle, submitPuzzle, skipPuzzle, NoPuzzleOpenError } from './minigame.js';
+import { startPuzzle, submitPuzzle, probePuzzle, skipPuzzle, NoPuzzleOpenError } from './minigame.js';
 
 const MAX_FAILS = 5;
 const WINDOW_MS = 60_000;
@@ -57,7 +58,7 @@ const answerOf = (v) => {
 const TRY_AGAIN = 'could not make a puzzle just now, please try again';
 
 export function createApp({
-  db, organizerPassword, now = Date.now, data = loadData(), staticRoot = 'public', exportDir = 'data/graphs', director = runDirector,
+  db, organizerPassword, now = Date.now, clock = null, data = loadData(), staticRoot = 'public', exportDir = 'data/graphs', director = runDirector,
   setTimer = (fn, ms) => setTimeout(fn, ms).unref(), clearTimer = clearTimeout,
   backupDir = 'backups', backup = backupDb, backupKeep = 50, backupTimeoutMs = 60_000, speed = 1,
   join = () => joinConfigFromEnv(process.env),
@@ -97,8 +98,33 @@ export function createApp({
       return res.end();
     }
     if (/^\/join\/?(\?|$)/.test(req.url || '')) return serveJoin(req, res);
+    if (/^\/practice\/api\/(puzzle|check)(\?|$)/.test(req.url || '')) return servePractice(req, res);
     return handler(req, res);
   });
+  // Practice puzzles (see practice.js): GET a puzzle, or POST an answer to check. Nothing is stored.
+  async function servePractice(req, res) {
+    const send = (code, body) => {
+      res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+      res.end(JSON.stringify(body));
+    };
+    try {
+      const url = new URL(req.url, 'http://local');
+      if (req.method === 'GET' && url.pathname === '/practice/api/puzzle') {
+        return send(200, practicePuzzle({ kind: url.searchParams.get('kind'), level: url.searchParams.get('level'), seed: url.searchParams.get('seed') }));
+      }
+      if (req.method === 'POST' && url.pathname === '/practice/api/check') {
+        let raw = '';
+        for await (const chunk of req) {
+          raw += chunk;
+          if (raw.length > 64 * 1024) return send(413, { error: 'too_big' });
+        }
+        return send(200, practiceCheck(JSON.parse(raw)));
+      }
+      return send(405, { error: 'method_not_allowed' });
+    } catch (err) {
+      return send(400, { error: err.message || 'bad_request' });
+    }
+  }
   // The join sign: public, read-only, built from server settings only (never from the request).
   function serveJoin(req, res) {
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { allow: 'GET, HEAD' }); return res.end(); }
@@ -258,6 +284,22 @@ export function createApp({
       const r = skipToNextPhase(db, g, now());
       logAct('skip_phase', { from: r.from, to: r.to }, g.id);
     },
+    pause_clock: () => {
+      const g = needGame();
+      if (!clock) throw new Error('this server has no game clock');
+      if (clock.paused()) throw new Error('the timer is already paused');
+      clock.pause();
+      setPaused(db, g.id, true, clock.pausedMs());
+      logAct('pause_clock', {}, g.id);
+    },
+    resume_clock: () => {
+      const g = needGame();
+      if (!clock) throw new Error('this server has no game clock');
+      if (!clock.paused()) throw new Error('the timer is not paused');
+      clock.resume();
+      setPaused(db, g.id, false, clock.pausedMs());
+      logAct('resume_clock', {}, g.id);
+    },
     end_ideation_early: () => {
       const g = needGame();
       endIdeationNow(ctx, g);
@@ -303,6 +345,14 @@ export function createApp({
     puzzle_submit: (id, m, g) => {
       const answer = answerOf(m.answer);
       try { return submitPuzzle(ctx, g, id, answer); } catch (e) {
+        if (e instanceof NoPuzzleOpenError) return { ok: false, coins: 0, closed: true };
+        throw e;
+      }
+    },
+    // The automatic check after every tap: quiet when wrong, and never counted as a wrong try.
+    puzzle_probe: (id, m, g) => {
+      const answer = answerOf(m.answer);
+      try { return probePuzzle(ctx, g, id, answer); } catch (e) {
         if (e instanceof NoPuzzleOpenError) return { ok: false, coins: 0, closed: true };
         throw e;
       }
@@ -454,6 +504,7 @@ export function createApp({
         const r = participantActions[msg.type](s.admissionId, msg, game);
         // Direct reply to the attacker only: never anything about the victim's state.
         if (msg.type === 'puzzle_submit') send(ws, { type: 'puzzle_result', ok: !!(r && r.ok), coins: r ? r.coins : 0, ...(r && r.closed ? { closed: true } : {}) });
+        if (msg.type === 'puzzle_probe' && r && r.ok) send(ws, { type: 'puzzle_result', ok: true, coins: r.coins });
         if (msg.type === 'attack') send(ws, { type: 'attack_result', blocked: !!(r && r.blocked), endsAt: r && r.endsAt });
       } else {
         return send(ws, { type: 'error', error: 'bad_message' });

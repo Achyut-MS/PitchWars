@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { humanError, viewKey, createSendGuard, redrawDecision } from '../public/glue.js';
+import { humanError, viewKey, createSendGuard, redrawDecision, shouldRequestNextPuzzle } from '../public/glue.js';
 
 test('humanError turns server codes into sentences', () => {
   assert.equal(humanError('bad_password'), 'Wrong password');
@@ -47,4 +47,13 @@ test('redraw decision: skip unchanged, defer while a pointer is down (max 400 ms
   assert.equal(d.wait, 300);
   assert.equal(redrawDecision({ changed: true, pointerDown: true, downAt: 1000, now: 1400 }).action, 'draw');
   assert.equal(redrawDecision({ changed: false, pointerDown: true, downAt: 1000, now: 1100 }).action, 'skip');
+});
+
+test('after a solve the CFO asks for the next puzzle only until one is open, in the competition', () => {
+  const ask = { wanted: true, puzzleOpen: false, phase: 'competition', role: 'CFO' };
+  assert.equal(shouldRequestNextPuzzle(ask), true);
+  assert.equal(shouldRequestNextPuzzle({ ...ask, puzzleOpen: true }), false, 'a puzzle is open already');
+  assert.equal(shouldRequestNextPuzzle({ ...ask, wanted: false }), false, 'no solve happened');
+  assert.equal(shouldRequestNextPuzzle({ ...ask, role: 'CEO' }), false, 'only the CFO plays puzzles');
+  assert.equal(shouldRequestNextPuzzle({ ...ask, phase: 'shop' }), false, 'only in the competition');
 });

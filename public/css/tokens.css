@@ -10,7 +10,7 @@
   --block: "Archivo Black", "Arial Black", Impact, sans-serif;
   --mono: "Space Mono", "Courier New", monospace;
   --line: 3px; --line-thick: 5px; --shadow: 6px; --shadow-sm: 3px; --chamfer: 22px; --radius: 8px; --tap: 44px;
-  --logo: url("/img/logo.svg"); /* THE logo slot: swap public/img/logo.svg, or point this at the new file */
+  --logo: url("/img/logo.png"); /* THE logo slot: swap public/img/logo.png, or point this at the new file */
   /* Company theme. Company A (Alpha) is the default; [data-company="B"] (Beta) swaps it. */
   --team: var(--orange); --team-ink: var(--ink); --team-on-ink: var(--orange); --team-soft: var(--tint-a);
 }

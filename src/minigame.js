@@ -2,7 +2,8 @@ import { logEvent } from './events.js';
 import { phaseAt } from './phases.js';
 import { playerIn } from './state.js';
 import { isLocked } from './attacks.js';
-import { PUZZLES, KINDS, NAMES } from './puzzles/index.js';
+import { PUZZLES, KINDS, NAMES, ROLE_KINDS, puzzleModule } from './puzzles/index.js';
+import { ideaOf } from './state.js';
 import { mulberry32 } from './puzzles/rng.js';
 
 export const FREE_SKIPS = 2;
@@ -13,11 +14,16 @@ const MAX_ANSWER_CHARS = 20000;
 export const levelFor = (solved) => Math.min(4, 1 + Math.floor(solved / 2));
 export const rewardFor = (level) => (level <= 2 ? 20 : 40);
 
-export const openPuzzle = (db, gameId, company) =>
-  db.prepare('SELECT * FROM puzzle_sessions WHERE game_id=? AND company=? AND ended_at IS NULL ORDER BY id DESC LIMIT 1').get(gameId, company);
+// Each role plays its own puzzles: the CFO's, the CMO's logo brief and the COO's risk fixes.
+export const PLAYABLE_ROLES = ['CFO', 'CMO', 'COO'];
 
-const count = (db, gameId, company, result) =>
-  db.prepare('SELECT COUNT(*) AS n FROM puzzle_sessions WHERE game_id=? AND company=? AND result=?').get(gameId, company, result).n;
+export const openPuzzle = (db, gameId, company, role = 'CFO') =>
+  db.prepare('SELECT * FROM puzzle_sessions WHERE game_id=? AND company=? AND role=? AND ended_at IS NULL ORDER BY id DESC LIMIT 1').get(gameId, company, role);
+
+// Solved counts are per role (they set that role's level); skips count for the whole company.
+const count = (db, gameId, company, result, role = null) => (role
+  ? db.prepare('SELECT COUNT(*) AS n FROM puzzle_sessions WHERE game_id=? AND company=? AND result=? AND role=?').get(gameId, company, result, role).n
+  : db.prepare('SELECT COUNT(*) AS n FROM puzzle_sessions WHERE game_id=? AND company=? AND result=?').get(gameId, company, result).n);
 
 // Only what the player may see. The stored solution and seed never leave the server.
 export function publicPuzzle(db, row) {
@@ -28,16 +34,16 @@ export function publicPuzzle(db, row) {
   };
 }
 
-function cfo(ctx, game, admissionId) {
+function seat(ctx, game, admissionId) {
   const p = playerIn(ctx.db, game.id, admissionId);
   if (!p) throw new Error('not in this game');
-  if (p.role !== 'CFO') throw new Error('only the CFO can play puzzles');
+  if (!PLAYABLE_ROLES.includes(p.role)) throw new Error('only the CFO, CMO and COO can play puzzles');
   if (phaseAt(game, ctx.now()).phase !== 'competition') throw new Error('puzzles are only open during the competition');
   return p;
 }
 
 // Kinds verified never to throw (2000 seeds x 4 levels) and to take about 1 ms.
-export const FALLBACK_KINDS = ['sets', 'tower', 'mosaic'];
+export const FALLBACK_KINDS = ['queens', 'shikaku', 'pipes'];
 
 export class NoPuzzleOpenError extends Error {
   constructor() { super('no puzzle is open'); this.name = 'NoPuzzleOpenError'; }
@@ -47,50 +53,55 @@ const attemptSeed = (base, attempt) => (Math.imul(base >>> 0, 2654435761) + atte
 
 // Never throws and always returns a puzzle: every attempt has its own seed, Lits (which can be slow)
 // is tried at most once, and if all attempts fail a cheap always-working kind is used.
-function generateOne(level, base, kinds) {
+function generateOne(level, base, kinds, fallbacks, extra) {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     let kind = kinds[attempt < 2 ? 0 : (attempt - 1) % kinds.length];
     if (attempt === 1 && kind === 'lits') kind = kinds[1 % kinds.length];
     try {
-      const made = PUZZLES[kind].generate(level, mulberry32(attemptSeed(base, attempt)));
+      const made = puzzleModule(kind).generate(level, mulberry32(attemptSeed(base, attempt)), extra);
       if (made && made.puzzle !== undefined && made.solution !== undefined) return { kind, made };
     } catch { /* try the next attempt */ }
   }
-  for (let i = 0; i < FALLBACK_KINDS.length * 3; i++) {
-    const kind = FALLBACK_KINDS[i % FALLBACK_KINDS.length];
+  for (let i = 0; i < fallbacks.length * 3; i++) {
+    const kind = fallbacks[i % fallbacks.length];
     try {
-      const made = PUZZLES[kind].generate(level, mulberry32(attemptSeed(base, MAX_ATTEMPTS + i)));
+      const made = puzzleModule(kind).generate(level, mulberry32(attemptSeed(base, MAX_ATTEMPTS + i)), extra);
       if (made) return { kind, made };
     } catch { /* next */ }
   }
-  // Unreachable in practice; level 1 sets as a last resort keeps the contract.
-  return { kind: 'sets', made: PUZZLES.sets.generate(1, mulberry32(1)) };
+  // Unreachable in practice; level 1 of the role's first kind keeps the contract.
+  return { kind: kinds[0], made: puzzleModule(kinds[0]).generate(1, mulberry32(1), extra) };
 }
 
 export function startPuzzle(ctx, game, admissionId, rng) {
-  const p = cfo(ctx, game, admissionId);
+  const p = seat(ctx, game, admissionId);
+  const role = p.role;
   return ctx.db.transaction(() => {
-    const open = openPuzzle(ctx.db, game.id, p.company);
+    const open = openPuzzle(ctx.db, game.id, p.company, role);
     if (open) return open;
-    const total = ctx.db.prepare('SELECT COUNT(*) AS n FROM puzzle_sessions WHERE game_id=? AND company=?').get(game.id, p.company).n;
-    // Seeded per game, company and session number so a restart re-serves the same puzzle.
-    const base = rng ? Math.floor(rng() * 4294967296) : (game.id * 7919 + (p.company === 'A' ? 1 : 2) * 104729 + total * 15485863) >>> 0;
+    const total = ctx.db.prepare('SELECT COUNT(*) AS n FROM puzzle_sessions WHERE game_id=? AND company=? AND role=?').get(game.id, p.company, role).n;
+    // Seeded per game, company, role and session number so a restart re-serves the same puzzle.
+    const base = rng ? Math.floor(rng() * 4294967296) : (game.id * 7919 + (p.company === 'A' ? 1 : 2) * 104729 + total * 15485863 + PLAYABLE_ROLES.indexOf(role) * 2654435) >>> 0;
     const pick = rng ?? mulberry32(base);
-    const level = levelFor(count(ctx.db, game.id, p.company, 'solved'));
-    const last = ctx.db.prepare('SELECT kind FROM puzzle_sessions WHERE game_id=? AND company=? ORDER BY id DESC LIMIT 1').get(game.id, p.company);
-    const others = KINDS.filter((k) => !last || k !== last.kind);
+    const level = levelFor(count(ctx.db, game.id, p.company, 'solved', role));
+    const last = ctx.db.prepare('SELECT kind FROM puzzle_sessions WHERE game_id=? AND company=? AND role=? ORDER BY id DESC LIMIT 1').get(game.id, p.company, role);
+    const kinds = ROLE_KINDS[role];
+    const others = kinds.filter((k) => !last || k !== last.kind);
     const first = Math.floor(pick() * others.length);
     const order = [...others.slice(first), ...others.slice(0, first)];
     if (last) order.push(last.kind);
     // Lits is slow and can fail: never try it before the other kinds in the retry order.
     const lits = order.indexOf('lits');
     if (lits > 0) { order.splice(lits, 1); order.push('lits'); }
-    const got = generateOne(level, base, order);
+    // The COO's risk fixes come from the risks of the company's own idea.
+    const idea = role === 'COO' ? ideaOf(ctx, game, p.company) : null;
+    const extra = idea ? { risks: idea.risks } : {};
+    const got = generateOne(level, base, order, role === 'CFO' ? FALLBACK_KINDS : order, extra);
     const now = ctx.now();
     const info = ctx.db.prepare(
-      'INSERT INTO puzzle_sessions (game_id, company, admission_id, kind, level, puzzle, solution, shown_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-    ).run(game.id, p.company, admissionId, got.kind, level, JSON.stringify(got.made.puzzle), JSON.stringify(got.made.solution), now);
-    logEvent(ctx.db, { ts: now, gameId: game.id, admissionId, type: 'puzzle_shown', payload: { sessionId: Number(info.lastInsertRowid), kind: got.kind, level } });
+      'INSERT INTO puzzle_sessions (game_id, company, admission_id, kind, level, puzzle, solution, shown_at, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(game.id, p.company, admissionId, got.kind, level, JSON.stringify(got.made.puzzle), JSON.stringify(got.made.solution), now, role);
+    logEvent(ctx.db, { ts: now, gameId: game.id, admissionId, type: 'puzzle_shown', payload: { sessionId: Number(info.lastInsertRowid), kind: got.kind, level, role } });
     return ctx.db.prepare('SELECT * FROM puzzle_sessions WHERE id=?').get(info.lastInsertRowid);
   }).immediate();
 }
@@ -102,17 +113,28 @@ function sane(answer) {
   } catch { return false; }
 }
 
+// A player's answer. A wrong answer counts as a wrong try (the explicit Check button).
 export function submitPuzzle(ctx, game, admissionId, answer) {
-  const p = cfo(ctx, game, admissionId);
+  return judgePuzzle(ctx, game, admissionId, answer, { countWrong: true });
+}
+
+// The automatic check after each tap: a right answer solves the puzzle, a wrong one changes nothing.
+export function probePuzzle(ctx, game, admissionId, answer) {
+  return judgePuzzle(ctx, game, admissionId, answer, { countWrong: false });
+}
+
+function judgePuzzle(ctx, game, admissionId, answer, { countWrong }) {
+  const p = seat(ctx, game, admissionId);
   return ctx.db.transaction(() => {
     const now = ctx.now();
-    const row = openPuzzle(ctx.db, game.id, p.company);
+    const row = openPuzzle(ctx.db, game.id, p.company, p.role);
     if (!row) throw new NoPuzzleOpenError();
     let ok = false;
     if (sane(answer)) {
-      try { ok = PUZZLES[row.kind].check(JSON.parse(row.puzzle), JSON.parse(JSON.stringify(answer))) === true; } catch { ok = false; }
+      try { ok = puzzleModule(row.kind).check(JSON.parse(row.puzzle), JSON.parse(JSON.stringify(answer))) === true; } catch { ok = false; }
     }
     if (!ok) {
+      if (!countWrong) return { ok: false, coins: 0 };
       ctx.db.prepare('UPDATE puzzle_sessions SET wrong_tries = wrong_tries + 1 WHERE id=?').run(row.id);
       logEvent(ctx.db, { ts: now, gameId: game.id, admissionId, type: 'puzzle_wrong', payload: { sessionId: row.id, kind: row.kind, level: row.level, wrongTries: row.wrong_tries + 1 } });
       return { ok: false, coins: 0 };
@@ -129,10 +151,10 @@ export function submitPuzzle(ctx, game, admissionId, answer) {
 }
 
 export function skipPuzzle(ctx, game, admissionId) {
-  const p = cfo(ctx, game, admissionId);
+  const p = seat(ctx, game, admissionId);
   return ctx.db.transaction(() => {
     const now = ctx.now();
-    const row = openPuzzle(ctx.db, game.id, p.company);
+    const row = openPuzzle(ctx.db, game.id, p.company, p.role);
     if (!row) throw new NoPuzzleOpenError();
     const penalty = count(ctx.db, game.id, p.company, 'skipped') >= FREE_SKIPS ? SKIP_PENALTY : 0;
     ctx.db.prepare("UPDATE puzzle_sessions SET ended_at=?, result='skipped', penalty=? WHERE id=?").run(now, penalty, row.id);

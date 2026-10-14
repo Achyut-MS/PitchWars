@@ -36,16 +36,19 @@ test('the organizer view and every other view carry no solution or seed', () => 
   }
 });
 
-test('other roles and the other company never see the CFO puzzle', () => {
+test('the CEO and CTO never see a puzzle, and no role sees another role\'s or the other company\'s puzzle', () => {
   const h = toCompetition(makeRunning());
   startPuzzle(h.ctx, h.game(), h.seat.A.CFO, mulberry32(3));
-  for (const r of ['CEO', 'CTO', 'CMO', 'COO']) {
+  for (const r of ['CEO', 'CTO']) {
     const c = viewFor(h.ctx, h.seat.A[r]).competition;
     assert.equal('puzzle' in c, false, r);
     assert.equal('puzzlesDone' in c, false, r);
     assert.equal('puzzlePanel' in c, false, r);
   }
+  // The CMO and COO have their own puzzle slots: none is open for them yet, and the CFO's is not theirs.
+  for (const r of ['CMO', 'COO']) assert.equal(viewFor(h.ctx, h.seat.A[r]).competition.puzzle, null, r);
   assert.equal(viewFor(h.ctx, h.seat.B.CFO).competition.puzzle, null);
+  assert.equal(viewFor(h.ctx, h.seat.B.CMO).competition.puzzle, null);
 });
 
 test('the CFO view counts puzzles solved and skipped', () => {

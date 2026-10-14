@@ -6,10 +6,7 @@ import { UI } from '../public/puzzles/ui.js';
 
 // Turns the stored solution into the taps a player would make.
 const taps = {
-  queens: (p, sol) => sol.map((c, r) => ({ cell: [r, c] })),
-  sets: (p, sol) => sol.flat().map((card) => ({ card })),
-  tower: (p, sol) => sol.flatMap((row, r) => row.flatMap((v, c) => Array(v).fill({ cell: [r, c] }))),
-  mosaic: (p, sol) => sol.flatMap((row, r) => row.map((on, c) => (on ? { cell: [r, c] } : null)).filter(Boolean)),
+  queens: (p, sol) => sol.map((c, r) => ({ cell: [r, c], clicks: 2 })),
   pipes: (p, sol) => sol.flatMap((row, r) => row.flatMap((t, c) => Array(t).fill({ cell: [r, c] }))),
   shikaku: (p, sol) => sol.flatMap((q) => [{ cell: [q.r, q.c] }, { cell: [q.r + q.h - 1, q.c + q.w - 1] }]),
   lits: (p, sol) => sol.map(([r, c]) => ({ cell: [r, c] })),
@@ -27,7 +24,7 @@ for (const kind of KINDS) {
   test(`${kind}: the first render gives a grid or cards that can be tapped`, () => {
     const { puzzle } = PUZZLES[kind].generate(1, mulberry32(5));
     const html = UI[kind].render(puzzle, UI[kind].initial(puzzle));
-    assert.ok(kind === 'sets' ? html.includes('data-card=') : html.includes('data-cell='));
+    assert.ok(html.includes('data-cell='));
   });
   test(`${kind}: a tap never changes the old state in place`, () => {
     const { puzzle, solution } = PUZZLES[kind].generate(1, mulberry32(9));
@@ -70,23 +67,35 @@ test('shikaku: tapping a placed rectangle removes it, and an overlapping rectang
 test('render escapes markup in clues and region ids', () => {
   const evil = '<script>x</script>';
   const pm = { n: 1, clues: [[evil]] };
-  assert.ok(UI.mosaic.render(pm, UI.mosaic.initial(pm)).includes('&lt;script'));
-  assert.equal(UI.mosaic.render(pm, UI.mosaic.initial(pm)).includes('<script'), false);
   assert.equal(UI.shikaku.render(pm, UI.shikaku.initial(pm)).includes('<script'), false);
   const pq = { n: 1, regions: [[evil]] };
   assert.equal(UI.queens.render(pq, UI.queens.initial(pq)).includes('<script'), false);
   const pl = { n: 1, count: 1, regions: [[evil]] };
   assert.equal(UI.lits.render(pl, UI.lits.initial(pl)).includes('<script'), false);
-  const pt = { n: 1, top: [evil], bottom: [evil], left: [evil], right: [evil] };
-  assert.equal(UI.tower.render(pt, UI.tower.initial(pt)).includes('<script'), false);
 });
 
-test('sets: tapping a grouped card ungroups it, and the card text is escaped markup-free', () => {
-  const p = { cards: [[0, 0, 0, 0], [1, 1, 1, 1], [2, 2, 2, 2]] };
-  let s = UI.sets.initial(p);
-  for (const card of [0, 1, 2]) s = UI.sets.apply(p, s, { card });
-  assert.equal(s.groups.length, 1);
-  s = UI.sets.apply(p, s, { card: 1 });
-  assert.equal(s.groups.length, 0);
-  assert.equal(UI.sets.render(p, s).includes('<script'), false);
+test('queens: a single tap marks a dot, a double tap places a queen and a second double tap removes it', () => {
+  const p = { n: 3, regions: [[0, 1, 2], [0, 1, 2], [0, 1, 2]] };
+  let s = UI.queens.initial(p);
+  s = UI.queens.apply(p, s, { cell: [2, 2], clicks: 1 });
+  assert.deepEqual(s.dots, ['2,2']);
+  s = UI.queens.apply(p, s, { cell: [2, 2], clicks: 2 });
+  assert.deepEqual(s.cols, [null, null, 2]);
+  assert.deepEqual(s.dots, [], 'placing the queen clears its dot');
+  s = UI.queens.apply(p, s, { cell: [2, 2], clicks: 2 });
+  assert.deepEqual(s.cols, [null, null, null]);
+});
+
+test('queens: a placed queen blocks its row, column, region and neighbours, and blocked squares take no queen or dot', () => {
+  const p = { n: 4, regions: [[0, 0, 1, 1], [0, 0, 1, 1], [2, 2, 3, 3], [2, 2, 3, 3]] };
+  let s = UI.queens.apply(p, UI.queens.initial(p), { cell: [0, 0], clicks: 2 });
+  const html = UI.queens.render(p, s);
+  assert.match(html, /<td class="reg reg-1 [^"]*blocked" data-cell="0,2">×<\/td>/, 'same row');
+  assert.match(html, /data-cell="2,0">×<\/td>/, 'same column');
+  assert.match(html, /data-cell="1,1">×<\/td>/, 'neighbour and same region');
+  assert.match(html, /data-cell="3,3">/);
+  assert.equal(/data-cell="3,3">×/.test(html), false, 'a square far away stays open');
+  assert.deepEqual(UI.queens.apply(p, s, { cell: [0, 2], clicks: 2 }).cols, [0, null, null, null], 'no queen on a blocked square');
+  assert.deepEqual(UI.queens.apply(p, s, { cell: [2, 0], clicks: 1 }).dots, [], 'no dot on a blocked square');
+  assert.deepEqual(UI.queens.apply(p, s, { cell: [0, 0], clicks: 1 }).dots, [], 'no dot on the queen');
 });

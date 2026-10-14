@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Startup Showdown: puzzle practice</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/fonts.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/player.css">
+</head>
+<body>
+<main class="practice">
+  <header class="practice-head">
+    <h1>Puzzle practice</h1>
+    <p class="muted">Try every puzzle at any level. Nothing is saved and no coins are paid.</p>
+  </header>
+
+  <section class="card practice-pick" aria-label="Choose a puzzle">
+    <h2>1. Pick a puzzle</h2>
+    <div id="kinds" class="kind-row"></div>
+    <h2>2. Pick a level</h2>
+    <div id="levels" class="level-row"></div>
+    <button id="new" type="button" class="primary">New puzzle</button>
+  </section>
+
+  <section class="card practice-board" aria-live="polite">
+    <h2 id="title">Choose a puzzle to start</h2>
+    <p id="meta" class="muted"></p>
+    <div id="help"></div>
+    <div id="board" class="board-wrap"></div>
+    <div class="practice-actions">
+      <button id="clear" type="button" disabled>Clear board</button>
+    </div>
+    <p id="result" class="practice-result" role="status"></p>
+  </section>
+</main>
+<script type="module" src="/practice.js"></script>
+</body>
+</html>

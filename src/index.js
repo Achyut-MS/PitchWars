@@ -36,7 +36,7 @@ export async function bootstrap({
   const speed = cleanSpeed(rawSpeed);
   const clock = createClock({ real: real ?? (speed === 1 ? realNow : speedClock(speed, realNow)) });
   resumeActiveGame(db, clock);
-  const app = createApp({ db, organizerPassword, now: clock.now, backupDir, exportDir, speed });
+  const app = createApp({ db, organizerPassword, now: clock.now, clock, backupDir, exportDir, speed });
   if (speed > 1) console.log(`REHEARSAL SPEED x${speed} - NOT FOR THE EVENT`);
   else console.log('Game speed x1 (real time)');
   app.db = db;

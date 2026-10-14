@@ -16,7 +16,7 @@ export function renderOrganizerLogin(error) {
   <div class="title"><h1><span class="one">Future</span> <span class="two">Makers</span></h1></div>
   <p class="sub">Startup Showdown</p>
   <form id="login" class="card"><h2>Organizer <b>Login</b></h2>
-  <label class="field pw">${icon('i-lock')}<span class="sr-only">Password</span><input name="pw" type="password" placeholder="Password" autocomplete="current-password" autofocus></label>
+  <label class="field pw">${icon('i-lock')}<span class="sr-only">Password</span><input name="pw" type="password" id="org-pw" placeholder="Password" autocomplete="current-password" autofocus><button type="button" class="pw-toggle" aria-controls="org-pw" aria-pressed="false">Show</button></label>
   <button type="submit" class="join">Login</button>
   ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ''}</form>
   <aside class="card info">${icon('i-info', 'i big')}<p>Authorized organizers only. All actions are recorded.</p></aside>
@@ -195,6 +195,8 @@ function renderOrganizerInner(v, ui = {}) {
   const banner = stuck.length
     ? `<p class="warn" role="alert">Warning: the ${stuck.map(esc).join(', ')} phase could not finish. Check the server log.</p>` : '';
   const controls = `<section class="card" id="sec-controls"><h2>Controls</h2>
+  ${v.game.paused ? '<p class="warn" role="status">The timer is paused. Nothing moves until you resume it.</p>' : ''}
+  ${v.game.paused ? send('Resume timer', { type: 'resume_clock' }, 'primary') : send('Pause timer', { type: 'pause_clock' })}
   ${clock.phase === 'ideation' ? confirmButton('end ideation early', 'end_ideation_early', ui) : ''}
   ${['briefing', 'ideation', 'shop', 'summary'].includes(clock.phase)
     ? `<p class="muted">Rehearsal and testing only:</p>${confirmButton('skip to next phase', 'skip_phase', ui)}` : ''}

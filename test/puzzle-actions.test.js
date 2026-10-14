@@ -50,19 +50,19 @@ async function competing() {
 
 test('a non-CFO puzzle_next is refused', async () => {
   const env = await competing();
-  assert.deepEqual(await ask(env.a, { type: 'puzzle_next' }), { type: 'error', error: 'only the CFO can play puzzles' });
+  assert.deepEqual(await ask(env.a, { type: 'puzzle_next' }), { type: 'error', error: 'only the CFO, CMO and COO can play puzzles' });
   await done(env.app, env.o, env.a, env.b);
 });
 
-test('every non-CFO and the organizer are refused for next, submit and skip; nothing is created', async () => {
+test('the CEO and CTO are refused for next, submit and skip; the organizer too; nothing is created', async () => {
   const env = await competing();
   const socks = [env.a, env.b];
-  for (const id of ['S1', 'S3', 'S4', 'S6', 'S9']) socks.push(await env.login(id));
+  for (const id of ['S1', 'S6']) socks.push(await env.login(id));
   for (const s of socks) {
     for (const m of [{ type: 'puzzle_next' }, { type: 'puzzle_submit', answer: [1] }, { type: 'puzzle_skip' }]) {
       const r = await ask(s, m);
       assert.equal(r.type, 'error');
-      assert.equal(r.error, 'only the CFO can play puzzles');
+      assert.equal(r.error, 'only the CFO, CMO and COO can play puzzles');
     }
   }
   assert.deepEqual(await ask(env.o, { type: 'puzzle_next' }), { type: 'error', error: 'bad_message' });
@@ -191,4 +191,60 @@ test('a submit or skip with no open puzzle replies quietly, never an error, and 
   assert.equal(wallet(), w);
   assert.equal(env.db.prepare("SELECT COUNT(*) n FROM events WHERE type IN ('puzzle_wrong','puzzle_skipped')").get().n, 0);
   await done(env.app, env.o, env.a, env.b, cfo);
+});
+
+test('the automatic check: a wrong answer is quiet and never counted; the right one solves the puzzle', async () => {
+  const env = await competing();
+  const cfo = await env.login('S2');
+  await ask(cfo, { type: 'puzzle_next' });
+  const sol = JSON.parse(env.db.prepare('SELECT solution FROM puzzle_sessions').get().solution);
+  // A wrong answer: no reply to the sender and no wrong try recorded.
+  cfo.send(JSON.stringify({ type: 'puzzle_probe', answer: sol.map(() => 0) }));
+  await wait();
+  assert.equal(cfo.log.some((s) => s.includes('"puzzle_result"')), false);
+  assert.equal(env.db.prepare('SELECT wrong_tries FROM puzzle_sessions').get().wrong_tries, 0);
+  assert.equal(env.db.prepare("SELECT COUNT(*) n FROM events WHERE type='puzzle_wrong'").get().n, 0);
+  // The right answer solves it and the sender hears a solved result.
+  const got = nextN(cfo, 2);
+  cfo.send(JSON.stringify({ type: 'puzzle_probe', answer: sol }));
+  const msgs = await got;
+  assert.deepEqual(msgs.find((m) => m.type === 'puzzle_result'), { type: 'puzzle_result', ok: true, coins: 20 });
+  assert.equal(env.db.prepare("SELECT result FROM puzzle_sessions").get().result, 'solved');
+  await done(env.app, env.o, env.a, env.b, cfo);
+});
+
+test('after a solve, puzzle_next opens the next puzzle straight away (the level rises every two solves)', async () => {
+  const env = await competing();
+  const cfo = await env.login('S2');
+  await ask(cfo, { type: 'puzzle_next' });
+  const sol = JSON.parse(env.db.prepare('SELECT solution FROM puzzle_sessions').get().solution);
+  cfo.send(JSON.stringify({ type: 'puzzle_probe', answer: sol }));
+  await wait();
+  const got = await ask(cfo, { type: 'puzzle_next' });
+  assert.equal(got.type, 'state');
+  assert.ok(got.view.competition.puzzle, 'a puzzle is open after the solve');
+  const rows = env.db.prepare('SELECT result, level FROM puzzle_sessions ORDER BY id').all();
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].result, 'solved');
+  assert.equal(rows[1].result, null);
+  await done(env.app, env.o, env.a, env.b, cfo);
+});
+
+test('the CMO and the COO each get their own puzzle and solve it: the company is paid and the next one opens', async () => {
+  const env = await competing();
+  const cmo = await env.login('S3');
+  const coo = await env.login('S4');
+  for (const [sock, kind] of [[cmo, 'logo'], [coo, 'risks']]) {
+    const got = await ask(sock, { type: 'puzzle_next' });
+    assert.equal(got.type, 'state');
+    assert.equal(got.view.competition.puzzle.kind, kind);
+    const row = env.db.prepare('SELECT solution FROM puzzle_sessions WHERE kind = ? AND ended_at IS NULL').get(kind);
+    const sol = JSON.parse(row.solution);
+    const two = nextN(sock, 2);
+    sock.send(JSON.stringify({ type: 'puzzle_probe', answer: sol }));
+    const msgs = await two;
+    assert.deepEqual(msgs.find((m) => m.type === 'puzzle_result'), { type: 'puzzle_result', ok: true, coins: 20 }, kind);
+  }
+  assert.equal(env.db.prepare("SELECT COUNT(*) n FROM puzzle_sessions WHERE result='solved'").get().n, 2);
+  await done(env.app, env.o, env.a, env.b, cmo, coo);
 });

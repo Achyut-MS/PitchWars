@@ -50,11 +50,9 @@ test('role chips show all five roles with the viewer marked', () => {
 
 test('the logo slot is a labelled span that the stylesheet fills from one file', () => {
   assert.equal(logo(), '<span class="logo" role="img" aria-label="Makerspace logo"></span>');
-  const svg = readFileSync('public/img/logo.svg', 'utf8');
-  assert.match(svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
-  assert.match(svg, /PLACEHOLDER/);
-  // "--" inside an XML comment makes the whole file invalid and the logo silently disappears.
-  for (const [, body] of svg.matchAll(/<!--([\s\S]*?)-->/g)) assert.equal(body.includes('--'), false);
-  assert.ok(statSync('public/img/logo.svg').size < 30 * 1024);
+  // The real logo: a circular PNG cut at the outer gold ring (transparent outside), kept small.
+  const png = readFileSync('public/img/logo.png');
+  assert.equal(png.subarray(1, 4).toString('latin1'), 'PNG');
+  assert.ok(statSync('public/img/logo.png').size < 80 * 1024);
   assert.ok(statSync('public/img/icons.svg').size < 12 * 1024);
 });

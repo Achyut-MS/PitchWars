@@ -14,10 +14,11 @@ import { activeEvent } from './marketEvents.js';
 import { activeAttacks } from './attacks.js';
 import { latestHint } from './hints.js';
 import { graphsFor } from './results.js';
-import { openPuzzle, publicPuzzle, levelFor, rewardFor, FREE_SKIPS } from './minigame.js';
+import { openPuzzle, publicPuzzle, levelFor, rewardFor, FREE_SKIPS, PLAYABLE_ROLES } from './minigame.js';
 
-const puzzleCount = (db, gameId, company, result) =>
-  prep(db, 'SELECT COUNT(*) AS n FROM puzzle_sessions WHERE game_id=? AND company=? AND result=?').get(gameId, company, result).n;
+const puzzleCount = (db, gameId, company, result, role = null) => (role
+  ? prep(db, 'SELECT COUNT(*) AS n FROM puzzle_sessions WHERE game_id=? AND company=? AND result=? AND role=?').get(gameId, company, result, role).n
+  : prep(db, 'SELECT COUNT(*) AS n FROM puzzle_sessions WHERE game_id=? AND company=? AND result=?').get(gameId, company, result).n);
 
 const revealed = (ctx, game) => !!prep(ctx.db, 'SELECT revealed_at FROM games WHERE id=?').get(game.id).revealed_at;
 
@@ -156,9 +157,9 @@ function competitionView(ctx, game, p, clock, cache) {
     attack = { options: ATTACKS.map(({ key, name, cost }) => ({ key, name, cost })), cooldownLeftSec, lockedReason, launches };
   }
   let puzzleBlock = {};
-  if (p.role === 'CFO') {
-    const row = openPuzzle(ctx.db, game.id, p.company);
-    const solved = puzzleCount(ctx.db, game.id, p.company, 'solved');
+  if (PLAYABLE_ROLES.includes(p.role)) {
+    const row = openPuzzle(ctx.db, game.id, p.company, p.role);
+    const solved = puzzleCount(ctx.db, game.id, p.company, 'solved', p.role);
     const skipped = puzzleCount(ctx.db, game.id, p.company, 'skipped');
     // The jam is never named: the CFO only sees the reward actually on offer.
     const halved = isLocked(ctx, game, p.company, 'minigame_half', t);
@@ -247,7 +248,7 @@ export function organizerView(ctx, cache = null) {
   };
   return {
     screen: 'organizer', participants, problems, backup, rehearsalSpeed, downloads, warnings,
-    game: { id: game.id, problemId: game.problemId, stuck: stuckPhases(ctx.db, game.id), clock: phaseAt(game, ctx.now()), ended: phaseAt(game, ctx.now()).phase === 'ended', revealed: revealed(ctx, game), companies: { A: panel('A'), B: panel('B') },
+    game: { id: game.id, problemId: game.problemId, paused: !!game.paused, stuck: stuckPhases(ctx.db, game.id), clock: phaseAt(game, ctx.now()), ended: phaseAt(game, ctx.now()).phase === 'ended', revealed: revealed(ctx, game), companies: { A: panel('A'), B: panel('B') },
       puzzles: Object.fromEntries(['A', 'B'].map((c) => [c, {
         solved: puzzleCount(ctx.db, game.id, c, 'solved'),
         skipped: puzzleCount(ctx.db, game.id, c, 'skipped'),

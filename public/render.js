@@ -31,6 +31,7 @@ export function renderLogin(error) {
   <h2>Participant <b>Login</b></h2>
   <label class="field">${icon('i-user')}<span class="sr-only">Admission ID</span><input name="id" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Admission ID" autofocus></label>
   <button type="submit" class="join">Join game</button>
+  <button type="button" class="back" data-back>Go back</button>
   ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ''}
 </form>
   <aside class="card info">${icon('i-info', 'i big')}<ul><li>Use your registered Admission ID.</li><li>Only IDs from the official roster are allowed.</li></ul></aside>
@@ -141,7 +142,15 @@ const HINTS = {
 
 const TITLES = { CTO: 'Product workshop', CMO: 'Brand studio', COO: 'Risk & protection workshop', CFO: 'Treasury & approval queue', CEO: 'Command center' };
 
-export function shopBody(v) {
+// One tab bar and its panels. Every panel is in the markup; app.js shows the chosen one.
+function tabs(scope, items, fallback) {
+  const nav = `<nav class="tabs" role="tablist" aria-label="${esc(scope)} sections" data-tabs="${esc(scope)}" data-default="${esc(fallback)}">${items.map((t) => `<button type="button" role="tab" class="tab" data-tab="${esc(t.key)}" data-scope="${esc(scope)}" aria-selected="false">${esc(t.label)}</button>`).join('')}</nav>`;
+  const panels = items.map((t) => `<div class="tab-panel" role="tabpanel" data-scope="${esc(scope)}" data-panel="${esc(t.key)}" hidden>${t.html}</div>`).join('');
+  return `<div class="tab-set">${nav}${panels}</div>`;
+}
+
+// The parts of the shop, shared by the shop phase and the competition tabs.
+function shopParts(v) {
   const sh = v.shop || {};
   const catalog = Array.isArray(sh.catalog) ? sh.catalog : [];
   const sections = [...new Set(catalog.map((i) => i.section))];
@@ -156,15 +165,28 @@ export function shopBody(v) {
   }).join('');
   const mineRows = Array.isArray(sh.mine) ? sh.mine : [];
   const mine = mineRows.length ? `<section class="card"><h3>My requests</h3><ul>${mineRows.map((r) => `<li>${esc(r.label)}: ${esc(r.status)}</li>`).join('')}</ul></section>` : '';
-  const closed = v.clock.phase === 'competition' && v.shop && sh.open === false ? '<p class="shop-closed" role="status">Shop closed: no new requests. Open requests can still be decided.</p>' : '';
+  const closed = shopClosed ? '<p class="shop-closed" role="status">Shop closed: no new requests. Open requests can still be decided.</p>' : '';
+  return {
+    notes: `${saleBadge}${lock ? `<p class="locked" role="status">${esc(lock)}</p>` : ''}${closed}`,
+    requests: `${awaitingList(v)}${queueList(v)}${mine}`,
+    catalog: lists,
+    product: `${v.idea ? `<p class="product">Product: ${esc(v.idea.name)}</p>` : ''}<section class="card"><h3>Our product</h3>${ownedPanel(v)}</section>`,
+  };
+}
+
+export function shopBody(v) {
+  const p = shopParts(v);
+  const items = [
+    { key: 'requests', label: 'Requests', html: p.requests },
+    { key: 'catalog', label: 'Catalog', html: p.catalog },
+    { key: 'product', label: 'Our product', html: p.product },
+  ];
   return `<main class="shop">
   <div class="ws-top"><div class="title2"><h1>${esc(TITLES[v.me.role] ?? 'Shop')}</h1>
   <p class="hint">${esc(HINTS[v.me.role] ?? '')}</p></div>
   <section class="budget"><span class="lab">Team budget</span><b class="amt">${icon('i-coins')}${esc(v.wallet)}</b></section></div>
-  ${saleBadge}${lock ? `<p class="locked" role="status">${esc(lock)}</p>` : ''}${closed}
-  ${v.idea ? `<p class="product">Product: ${esc(v.idea.name)}</p>` : ''}
-  ${awaitingList(v)}${queueList(v)}${mine}${lists}
-  <section class="card"><h3>Our product</h3>${ownedPanel(v)}</section></main>`;
+  ${p.notes}
+  ${tabs('shop', items, ['CEO', 'CFO'].includes(v.me.role) ? 'requests' : 'catalog')}</main>`;
 }
 
 const shop = (v) => `${header(v)}${shopBody(v)}`;
@@ -216,17 +238,59 @@ function hintCard(c) {
 
 const nz = (n) => (Number.isFinite(Number(n)) ? Number(n) : 0);
 
+// The roles that play puzzles: the CFO's puzzles, the CMO's logo brief and the COO's risk fixes.
+const PUZZLE_ROLES = ['CFO', 'CMO', 'COO'];
+
+// Rules and controls for each puzzle kind (the kinds are the server's puzzle names).
+const PUZZLE_HELP = {
+  queens: {
+    rules: ['Put exactly one queen in every row, every column and every coloured region.', 'No two queens may touch, not even diagonally.'],
+    play: ['Single tap a cell to mark a dot. Double tap a cell to place a queen, and double tap the queen to remove it.', 'Grey cells with a × are blocked by the queens already placed: a queen blocks its row, column, region and the eight squares around it.'],
+  },
+  pipes: {
+    rules: ['Turn the pipe tiles so every pipe meets a pipe on the next tile.', 'No pipe may point off the edge of the board, and all tiles must join one network that starts at the top-left corner.'],
+    play: ['Tap a tile to turn it 90 degrees clockwise.'],
+  },
+  shikaku: {
+    rules: ['Split the grid into rectangles so each rectangle holds exactly one number.', 'Each rectangle\'s area must equal its number, and every cell must be covered.'],
+    play: ['Tap one corner, then the opposite corner, to draw a rectangle.', 'Tap a cell that is already inside a rectangle to remove that rectangle. Rectangles cannot overlap.'],
+  },
+  logo: {
+    rules: ['The client brief names one option for each part of the logo.', 'Pick the option the brief asks for in every row, then the logo is ready.'],
+    play: ['Tap an option to pick it. Tap it again to clear it.'],
+  },
+  risks: {
+    rules: ['Every risk needs one fix. Pick the fix that handles it.', 'Test it: the risk is about accuracy. Protect it: the device can be damaged. Train the users: people forget or skip. Back it up: data or supplies can be lost.'],
+    play: ['Tap one fix per risk. Tap it again to clear it.'],
+  },
+  lits: {
+    rules: ['In each coloured region, shade exactly four connected cells. Together they make one of the shapes L, I, T or S.', 'No 2 x 2 block may be shaded.', 'Two shaded pieces of the same shape may not touch edge to edge.', 'All shaded cells must join up into one group.'],
+    play: ['Tap a cell to shade it. Tap it again to unshade it.'],
+  },
+};
+
+const PUZZLE_GENERAL = {
+  rules: ['Each puzzle has one correct answer. The board is checked as you play: when it is right, the reward is paid and the next puzzle starts.', 'A correct answer pays the reward shown on the puzzle.'],
+  play: ['Start a puzzle, then tap the grid to play. Skip gives up on the puzzle: the first skip is free, then each skip costs 10 coins.'],
+};
+
+export function puzzleHelp(kind) {
+  const h = PUZZLE_HELP[kind] || PUZZLE_GENERAL;
+  const list = (items) => `<ul>${items.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>`;
+  return `<details class="puzzle-help" open><summary>Rules and how to play</summary><h4>Rules</h4>${list(h.rules)}<h4>How to play</h4>${list(h.play)}</details>`;
+}
+
 // The CFO's puzzle panel. Plain markup; #puzzle-slot is filled by the browser from its local puzzle state.
 export function renderPuzzlePanel(v) {
   const c = v.competition || {};
-  if (v.me.role !== 'CFO' || !('puzzle' in c)) return '';
+  if (!PUZZLE_ROLES.includes(v.me.role) || !('puzzle' in c)) return '';
   const pp = c.puzzlePanel || {};
   const done = c.puzzlesDone || {};
   const solved = nz(pp.solved ?? done.solved);
   const note = '<p id="puzzle-note" class="puzzle-note muted" role="status"></p>';
   if (!c.puzzle) {
     const lvl = pp.level != null ? `<p class="puzzle-stats">Level ${esc(pp.level)} | Solved: ${esc(solved)}${pp.nextReward != null ? ` | Next reward: ${esc(pp.nextReward)} coins` : ''}</p>` : '';
-    return `<section class="card puzzle" id="puzzle-panel"><h3>Puzzles</h3><p class="muted">Puzzles are optional. Solved puzzles earn coins.</p>${lvl}${send('Start a puzzle', { type: 'puzzle_next' }, 'primary')}${note}</section>`;
+    return `<section class="card puzzle" id="puzzle-panel"><h3>Puzzles</h3><p class="muted">Puzzles are optional. Solved puzzles earn coins.</p>${lvl}${puzzleHelp(null)}${send('Start a puzzle', { type: 'puzzle_next' }, 'primary')}${note}</section>`;
   }
   const p = c.puzzle;
   const free = nz(p.skipsFreeLeft);
@@ -236,8 +300,9 @@ export function renderPuzzlePanel(v) {
     : send('Skip', { type: 'puzzle_skip' }, 'skip skip-paid').replace('<button ', '<button data-confirm="1" ');
   return `<section class="card puzzle" id="puzzle-panel"><h3>${esc(p.name)} <small>level ${esc(p.level)}, ${esc(p.reward)} coins</small></h3>
   <p class="puzzle-stats">Solved: ${esc(solved)}</p>
+  ${puzzleHelp(p.kind)}
   <div id="puzzle-slot" data-puzzle-id="${esc(p.id)}" data-kind="${esc(p.kind)}"></div>
-  <button id="puzzle-submit" class="primary">Check answer</button>${skipBtn}
+  ${skipBtn}
   <p class="muted">${esc(skipText)}</p>${note}</section>`;
 }
 
@@ -246,7 +311,17 @@ export function renderCompetition(v) {
   const w = v.clock.warning;
   const banner = w && BANNERS[w] ? `<p class="banner ${esc(w)}" role="status">${esc(BANNERS[w])}</p>` : '';
   const notices = (Array.isArray(c.notices) ? c.notices : []).map((n) => `<p class="notice">${esc(n)}</p>`).join('');
-  return `${header(v)}${banner}${notices}<section class="competition">${hintCard(c)}${ratesPanel(v, c)}${attackPanel(c)}${shieldPanel(c)}${renderPuzzlePanel(v)}</section>${shopBody(v)}`;
+  const p = shopParts(v);
+  const items = [
+    { key: 'sales', label: 'Sales', html: `${hintCard(c)}${ratesPanel(v, c)}${shieldPanel(c)}` },
+    { key: 'requests', label: 'Requests', html: p.requests },
+    { key: 'catalog', label: 'Catalog', html: p.catalog },
+    { key: 'product', label: 'Our product', html: p.product },
+  ];
+  if (c.attack) items.push({ key: 'attacks', label: 'Attacks', html: attackPanel(c) });
+  if (PUZZLE_ROLES.includes(v.me.role) && 'puzzle' in c) items.push({ key: 'puzzles', label: 'Puzzles', html: renderPuzzlePanel(v) });
+  const hint = `<p class="hint">${esc(HINTS[v.me.role] ?? '')}</p>`;
+  return `${header(v)}${banner}${notices}${p.notes}${hint}<section class="competition">${tabs('competition', items, 'sales')}</section>`;
 }
 
 function summary(v) {

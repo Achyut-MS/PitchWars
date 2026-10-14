@@ -16,6 +16,8 @@ for (const [name, hooks] of Object.entries(recorded)) {
   test(`${name}: the redesign keeps every id, class, data hook and message of the old markup`, () => {
     assert.ok(now[name], `fixture ${name} is missing`);
     const have = new Set(hooksOf(now[name]));
-    assert.deepEqual(hooks.filter((h) => !have.has(h)), []);
+    // The Check answer button is gone on purpose: the board is checked as the player taps.
+    const retired = new Set(['#puzzle-submit']);
+    assert.deepEqual(hooks.filter((h) => !have.has(h) && !retired.has(h)), []);
   });
 }

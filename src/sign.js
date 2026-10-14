@@ -47,13 +47,15 @@ body{font:400 22px/1.35 var(--mono);padding:16px 24px;max-width:1280px;margin:0 
 h1{font:400 44px/1.05 var(--slab);text-transform:uppercase;margin:0 0 18px;border:var(--line-thick) solid var(--ink);background:var(--paper);padding:10px 18px;box-shadow:8px 8px 0 var(--ink)}
 h1 b{font-weight:400;color:var(--orange);-webkit-text-stroke:2px var(--ink);paint-order:stroke fill}
 .steps{display:grid;grid-template-columns:1fr 1fr;gap:24px}
-.step{border:var(--line-thick) solid var(--ink);background:var(--field);box-shadow:var(--shadow) var(--shadow) 0 var(--ink);padding:0 16px 14px;display:flex;gap:16px;align-items:center;justify-content:space-between;break-inside:avoid}
+.step{border:var(--line-thick) solid var(--ink);background:var(--field);box-shadow:var(--shadow) var(--shadow) 0 var(--ink);padding:0 16px 14px;display:flex;gap:16px;align-items:flex-start;justify-content:space-between;break-inside:avoid}
 .step h2{display:inline-block;font:400 24px/1.1 var(--block);text-transform:uppercase;margin:0 0 10px -16px;background:var(--ink);color:var(--paper);padding:10px 34px 10px 16px;clip-path:polygon(0 0,100% 0,calc(100% - 22px) 100%,0 100%)}
 .big{display:block;font:400 44px/1.1 var(--block);overflow-wrap:anywhere;margin:4px 0 8px}
 .qr{width:200px;flex:none;border:var(--line) solid var(--ink);background:var(--white);padding:6px}.qr svg{display:block;width:100%;height:auto}
+.back-row{margin:18px 0 0}
+.back{display:inline-block;font:700 22px/1 var(--mono);color:var(--ink);background:var(--field);border:var(--line) solid var(--ink);padding:10px 18px;text-decoration:none;box-shadow:var(--shadow-sm) var(--shadow-sm) 0 var(--ink)}
 .last{font:400 26px/1.25 var(--block);margin:24px 0 0;border:var(--line-thick) solid var(--ink);background:var(--orange);color:var(--ink);padding:12px 18px;box-shadow:var(--shadow) var(--shadow) 0 var(--ink)}
 @media (max-width:900px){body{padding:12px 12px;font-size:18px}h1{font-size:32px;box-shadow:5px 5px 0 var(--ink)}.steps{grid-template-columns:1fr;gap:14px}.step{padding:0 12px 10px;flex-direction:row}.step h2{font-size:18px;margin-left:-12px}.big{font-size:28px;margin:2px 0 4px}.qr{width:104px}.last{font-size:18px;margin-top:14px}}
-@media print{html,body{background:var(--white)}body{padding:0;font-size:24px}h1{font-size:54px;box-shadow:none}.step,.last{box-shadow:none;background:var(--white)}.big{font-size:52px}.qr{width:260px}}
+@media print{.back-row{display:none}html,body{background:var(--white)}body{padding:0;font-size:24px}h1{font-size:54px;box-shadow:none}.step,.last{box-shadow:none;background:var(--white)}.big{font-size:52px}.qr{width:260px}}
 @media print and (orientation:portrait){.steps{grid-template-columns:1fr}}
 </style></head><body>
 <h1>Join Startup <b>Showdown</b></h1>
@@ -62,5 +64,6 @@ h1 b{font-weight:400;color:var(--orange);-webkit-text-stroke:2px var(--ink);pain
 <section class="step"><div><h2>2. Open your browser</h2>Type this address<span class="big">${esc(shown)}</span>If your phone says there is no internet, stay on this Wi-Fi.</div><div class="qr">${urlQr}</div></section>
 </div>
 <p class="last">3. Type your Admission ID and wait for the organizer.</p>
+<p class="back-row"><a class="back" href="/">Go back</a></p>
 </body></html>`;
 }
