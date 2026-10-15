@@ -43,7 +43,7 @@ function seat(ctx, game, admissionId) {
 }
 
 // Kinds verified never to throw (2000 seeds x 4 levels) and to take about 1 ms.
-export const FALLBACK_KINDS = ['queens', 'shikaku', 'pipes'];
+export const FALLBACK_KINDS = ['queens', 'pipes'];
 
 export class NoPuzzleOpenError extends Error {
   constructor() { super('no puzzle is open'); this.name = 'NoPuzzleOpenError'; }

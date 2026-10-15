@@ -22,6 +22,8 @@ const connect = (url) => new Promise((res, rej) => {
 });
 const next = (ws) => new Promise((res) => ws.once('message', (d) => res(JSON.parse(d))));
 async function ask(ws, msg) { const p = next(ws); ws.send(JSON.stringify(msg)); return p; }
+// Waits for a reply of one type: regular state pushes can arrive first and must not be taken as the reply.
+function askType(ws, msg, type) { return new Promise((res) => { const on = (d) => { const m = JSON.parse(d); if (m.type !== type) return; ws.off('message', on); res(m); }; ws.on('message', on); ws.send(JSON.stringify(msg)); }); }
 const nextN = (ws, n) => new Promise((res) => { const got = []; const on = (d) => { got.push(JSON.parse(d)); if (got.length === n) { ws.off('message', on); res(got); } }; ws.on('message', on); });
 const done = async (app, ...ws) => { ws.forEach((s) => s.terminate()); app.wss.clients.forEach((c) => c.terminate()); await new Promise((r) => app.server.close(r)); };
 // Barrier on every open socket: the server has handled what was sent and what it pushed has arrived (no sleeping).
@@ -50,7 +52,7 @@ async function competing() {
 
 test('a non-CFO puzzle_next is refused', async () => {
   const env = await competing();
-  assert.deepEqual(await ask(env.a, { type: 'puzzle_next' }), { type: 'error', error: 'only the CFO, CMO and COO can play puzzles' });
+  assert.deepEqual(await askType(env.a, { type: 'puzzle_next' }, 'error'), { type: 'error', error: 'only the CFO, CMO and COO can play puzzles' });
   await done(env.app, env.o, env.a, env.b);
 });
 
@@ -60,7 +62,7 @@ test('the CEO and CTO are refused for next, submit and skip; the organizer too; 
   for (const id of ['S1', 'S6']) socks.push(await env.login(id));
   for (const s of socks) {
     for (const m of [{ type: 'puzzle_next' }, { type: 'puzzle_submit', answer: [1] }, { type: 'puzzle_skip' }]) {
-      const r = await ask(s, m);
+      const r = await askType(s, m, 'error');
       assert.equal(r.type, 'error');
       assert.equal(r.error, 'only the CFO, CMO and COO can play puzzles');
     }

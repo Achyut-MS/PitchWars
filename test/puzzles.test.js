@@ -30,7 +30,6 @@ for (const kind of KINDS) {
 const mutate = {
   queens: (s) => { const a = [...s]; [a[0], a[1]] = [a[1], a[0]]; return a; },
   pipes: (s) => s.map((row, r) => (r === 0 ? row.map((v, c) => (c === 0 ? (v + 1) % 4 : v)) : row)),
-  shikaku: (s) => s.slice(1),
   lits: (s) => s.slice(1),
 };
 for (const kind of KINDS) {

@@ -318,3 +318,11 @@ main.results .card svg { width: 100%; height: auto; display: block; }
 .puzzle-grid.choices td.opt { min-width: 96px; text-align: center; cursor: pointer; }
 .puzzle-grid.choices td.opt.on { background: var(--ink); color: var(--paper); font-weight: 700; }
 .puzzle-grid.choices th.label, .puzzle-grid.choices th { background: var(--field); }
+
+/* Lits: the accepted shapes, drawn as small grids inside the rules panel */
+.shape-diagram { display: flex; flex-wrap: wrap; gap: 18px; margin: 10px 0 6px; }
+.shape-diagram figure { margin: 0; text-align: center; }
+.shape-diagram table.shape { border-collapse: separate; border-spacing: 3px; margin: 0 auto; }
+.shape-diagram table.shape td { width: 20px; height: 20px; border: 1px dashed var(--muted); background: transparent; padding: 0; }
+.shape-diagram table.shape td.on { background: var(--ink); border: 1px solid var(--ink); }
+.shape-diagram figcaption { font: 700 .95rem/1 var(--mono); margin-top: 6px; }

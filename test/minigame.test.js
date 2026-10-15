@@ -216,10 +216,10 @@ test('a generator that always fails falls back to another kind, never throws, ne
       assert.notEqual(row.kind, 'queens');
     }
     assert.ok(calls < 30 * 8);
-    for (const k of Object.keys(PUZZLES)) if (k !== 'shikaku') PUZZLES[k].generate = () => { throw new Error('boom'); };
+    for (const k of Object.keys(PUZZLES)) if (k !== 'pipes') PUZZLES[k].generate = () => { throw new Error('boom'); };
     for (let seed = 1; seed < 20; seed++) {
       h.db.prepare('DELETE FROM puzzle_sessions').run();
-      assert.equal(start(h, seed).kind, 'shikaku');
+      assert.equal(start(h, seed).kind, 'pipes');
     }
   } finally { for (const k of Object.keys(origs)) PUZZLES[k].generate = origs[k]; }
 });

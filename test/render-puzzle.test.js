@@ -87,8 +87,7 @@ test('every kind: tapping the stored solution through the panel session builds a
   const taps = {
     queens: (sol) => sol.map((c, r) => ({ cell: [r, c], clicks: 2 })),
     pipes: (sol) => sol.flatMap((row, r) => row.flatMap((t, c) => Array(t).fill({ cell: [r, c] }))),
-    shikaku: (sol) => sol.flatMap((q) => [{ cell: [q.r, q.c] }, { cell: [q.r + q.h - 1, q.c + q.w - 1] }]),
-    lits: (sol) => sol.map(([r, c]) => ({ cell: [r, c] })),
+    lits: (sol) => sol.map(([r, c]) => ({ cell: [r, c], clicks: 2 })),
   };
   for (const kind of KINDS) for (let level = 1; level <= 4; level++) {
     const { puzzle, solution } = PUZZLES[kind].generate(level, mulberry32(level * 17));

@@ -3,7 +3,7 @@ import { UI } from './puzzles/ui.js';
 import { createPuzzleSession } from './glue.js';
 import { puzzleHelp } from './render.js';
 
-const NAMES = { queens: 'Queens', pipes: 'Pipes', shikaku: 'Shikaku', lits: 'Lits', logo: 'Logo brief', risks: 'Risk fixes' };
+const NAMES = { queens: 'Queens', pipes: 'Pipes', lits: 'Lits', logo: 'Logo brief', risks: 'Risk fixes' };
 const LEVELS = [1, 2, 3, 4];
 const session = createPuzzleSession(UI);
 const state = { kind: null, level: 1, loading: false, solved: null };

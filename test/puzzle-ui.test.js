@@ -8,8 +8,7 @@ import { UI } from '../public/puzzles/ui.js';
 const taps = {
   queens: (p, sol) => sol.map((c, r) => ({ cell: [r, c], clicks: 2 })),
   pipes: (p, sol) => sol.flatMap((row, r) => row.flatMap((t, c) => Array(t).fill({ cell: [r, c] }))),
-  shikaku: (p, sol) => sol.flatMap((q) => [{ cell: [q.r, q.c] }, { cell: [q.r + q.h - 1, q.c + q.w - 1] }]),
-  lits: (p, sol) => sol.map(([r, c]) => ({ cell: [r, c] })),
+  lits: (p, sol) => sol.map(([r, c]) => ({ cell: [r, c], clicks: 2 })),
 };
 
 for (const kind of KINDS) {
@@ -53,21 +52,8 @@ test('the outer edge of the grid and the inside of a region have no region borde
   assert.equal(/class="[^"]*\bb[trbl]\b/.test(html), false);
 });
 
-test('shikaku: tapping a placed rectangle removes it, and an overlapping rectangle is ignored', () => {
-  const p = { n: 4, clues: Array.from({ length: 4 }, () => Array(4).fill(null)) };
-  let s = UI.shikaku.initial(p);
-  for (const t of [[0, 0], [1, 1]]) s = UI.shikaku.apply(p, s, { cell: t });
-  assert.equal(s.rects.length, 1);
-  for (const t of [[1, 1], [2, 2]]) s = UI.shikaku.apply(p, s, { cell: t });
-  // the second tap on (1,1) removes the existing rectangle; then (2,2) starts a new corner
-  assert.equal(s.rects.length, 0);
-  assert.deepEqual(s.first, [2, 2]);
-});
-
 test('render escapes markup in clues and region ids', () => {
   const evil = '<script>x</script>';
-  const pm = { n: 1, clues: [[evil]] };
-  assert.equal(UI.shikaku.render(pm, UI.shikaku.initial(pm)).includes('<script'), false);
   const pq = { n: 1, regions: [[evil]] };
   assert.equal(UI.queens.render(pq, UI.queens.initial(pq)).includes('<script'), false);
   const pl = { n: 1, count: 1, regions: [[evil]] };
@@ -98,4 +84,40 @@ test('queens: a placed queen blocks its row, column, region and neighbours, and 
   assert.deepEqual(UI.queens.apply(p, s, { cell: [0, 2], clicks: 2 }).cols, [0, null, null, null], 'no queen on a blocked square');
   assert.deepEqual(UI.queens.apply(p, s, { cell: [2, 0], clicks: 1 }).dots, [], 'no dot on a blocked square');
   assert.deepEqual(UI.queens.apply(p, s, { cell: [0, 0], clicks: 1 }).dots, [], 'no dot on the queen');
+});
+
+test('lits: a single tap marks a dot, a double tap shades, a second double tap unshades, and a blocked cell takes nothing', () => {
+  const p = { n: 2, count: 1, regions: [[0, 0], [0, 0]] };
+  let s = UI.lits.initial(p);
+  s = UI.lits.apply(p, s, { cell: [0, 0], clicks: 1 });
+  assert.deepEqual(s.dots, ['0,0']);
+  s = UI.lits.apply(p, s, { cell: [0, 0], clicks: 2 });
+  assert.deepEqual(s.shaded, ['0,0']);
+  assert.deepEqual(s.dots, [], 'shading clears the dot');
+  s = UI.lits.apply(p, s, { cell: [0, 0], clicks: 2 });
+  assert.deepEqual(s.shaded, []);
+});
+
+test('lits: a cell that would make a 2 x 2 shaded block is blocked and shows a ×', () => {
+  const p = { n: 2, count: 1, regions: [[0, 0], [0, 0]] };
+  let s = UI.lits.initial(p);
+  for (const c of [[0, 0], [0, 1], [1, 0]]) s = UI.lits.apply(p, s, { cell: c, clicks: 2 });
+  assert.equal(s.shaded.length, 3);
+  const html = UI.lits.render(p, s);
+  assert.match(html, /data-cell="1,1"[^>]*>×<\/td>/);
+  s = UI.lits.apply(p, s, { cell: [1, 1], clicks: 2 });
+  assert.equal(s.shaded.length, 3, 'the 2 x 2 block is not allowed');
+});
+
+test('lits: a region that already has four shaded cells blocks its last cells', () => {
+  // Region 0 has five cells; four of them shaded (no 2 x 2 block), so the fifth is blocked by the region rule alone.
+  const p = { n: 3, count: 2, regions: [[0, 0, 0], [0, 0, 1], [1, 1, 1]] };
+  let s = UI.lits.initial(p);
+  for (const c of [[0, 0], [0, 1], [0, 2], [1, 0]]) s = UI.lits.apply(p, s, { cell: c, clicks: 2 });
+  assert.equal(s.shaded.length, 4);
+  assert.match(UI.lits.render(p, s), /data-cell="1,1"[^>]*>×<\/td>/);
+  s = UI.lits.apply(p, s, { cell: [1, 1], clicks: 2 });
+  assert.equal(s.shaded.length, 4, 'the fifth cell of a full region cannot be shaded');
+  s = UI.lits.apply(p, s, { cell: [2, 2], clicks: 2 });
+  assert.equal(s.shaded.length, 5, 'the other region still has room');
 });

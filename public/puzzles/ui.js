@@ -68,36 +68,58 @@ const pipes = {
   }).join('')}</tr>`)),
 };
 
-const shikaku = {
-  initial: () => ({ rects: [], first: null }),
-  apply: (p, s, { cell: [r, c] }) => {
-    const n = clone(s);
-    const inside = (q) => r >= q.r && r < q.r + q.h && c >= q.c && c < q.c + q.w;
-    if (!n.first) {
-      const hit = n.rects.findIndex(inside);
-      if (hit >= 0) n.rects.splice(hit, 1); else n.first = [r, c];
-      return n;
-    }
-    const [r0, c0] = n.first;
-    const q = { r: Math.min(r0, r), c: Math.min(c0, c), h: Math.abs(r - r0) + 1, w: Math.abs(c - c0) + 1 };
-    n.first = null;
-    const overlaps = n.rects.some((o) => q.r < o.r + o.h && o.r < q.r + q.h && q.c < o.c + o.w && o.c < q.c + q.w);
-    if (!overlaps) n.rects.push(q);
-    return n;
-  },
-  answer: (p, s) => s.rects,
-  render: (p, s) => table(p.clues.map((row, r) => `<tr>${row.map((v, c) => {
-    const k = s.rects.findIndex((q) => r >= q.r && r < q.r + q.h && c >= q.c && c < q.c + q.w);
-    const first = s.first && s.first[0] === r && s.first[1] === c;
-    return cell(r, c, `rect${k >= 0 ? ` in r${k % 6}` : ''}${first ? ' first' : ''}`, v ?? '');
-  }).join('')}</tr>`)),
+// The accepted shapes (every turn and mirror image of each is accepted too).
+export const LIT_SHAPES = {
+  L: [[0, 0], [1, 0], [2, 0], [2, 1]],
+  I: [[0, 0], [1, 0], [2, 0], [3, 0]],
+  T: [[0, 0], [0, 1], [0, 2], [1, 1]],
+  S: [[0, 1], [0, 2], [1, 0], [1, 1]],
 };
 
+// Lits: a single tap marks a dot, a double tap shades a cell (a second double tap unshades it).
+// A cell is blocked when shading it would make a 2 x 2 shaded block or fill a region that already has four shaded cells.
+const litsBlocked = (p, shaded) => {
+  const n = p.n;
+  const out = new Set();
+  const on = (r, c) => shaded.has(`${r},${c}`);
+  const perRegion = {};
+  for (const k of shaded) { const [r, c] = k.split(',').map(Number); const id = p.regions[r][c]; perRegion[id] = (perRegion[id] || 0) + 1; }
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    if (on(r, c)) continue;
+    if ((perRegion[p.regions[r][c]] || 0) >= 4) { out.add(`${r},${c}`); continue; }
+    const squares = [[-1, -1], [-1, 0], [0, -1], [0, 0]].map(([dr, dc]) => [[r + dr, c + dc], [r + dr + 1, c + dc], [r + dr, c + dc + 1], [r + dr + 1, c + dc + 1]]);
+    if (squares.some((cells) => cells.every(([a, b]) => (a === r && b === c) || on(a, b)))) out.add(`${r},${c}`);
+  }
+  return out;
+};
 const lits = {
-  initial: (p) => ({ grid: Array.from({ length: p.n }, () => Array(p.n).fill(false)) }),
-  apply: (p, s, { cell: [r, c] }) => { const n = clone(s); n.grid[r][c] = !n.grid[r][c]; return n; },
-  answer: (p, s) => s.grid.flatMap((row, r) => row.map((on, c) => (on ? [r, c] : null)).filter(Boolean)),
-  render: (p, s) => table(p.regions.map((row, r) => `<tr>${row.map((reg, c) => cell(r, c, `reg reg-${reg % 8} ${edges(p.regions, r, c)}${s.grid[r][c] ? ' on' : ''}`.replace(/  +/g, ' '), '')).join('')}</tr>`)),
+  initial: () => ({ shaded: [], dots: [] }),
+  apply: (p, s, { cell: [r, c], clicks = 1 }) => {
+    const n = clone(s);
+    const k = `${r},${c}`;
+    const shaded = new Set(n.shaded);
+    if (clicks === 2) {
+      if (shaded.has(k)) { n.shaded = n.shaded.filter((x) => x !== k); return n; }
+      if (litsBlocked(p, shaded).has(k)) return n;
+      n.shaded = [...n.shaded, k];
+      n.dots = n.dots.filter((d) => d !== k);
+      return n;
+    }
+    if (clicks !== 1 || shaded.has(k) || litsBlocked(p, shaded).has(k)) return n;
+    n.dots = n.dots.includes(k) ? n.dots.filter((d) => d !== k) : [...n.dots, k];
+    return n;
+  },
+  answer: (p, s) => s.shaded.map((k) => k.split(',').map(Number)),
+  render: (p, s) => {
+    const shaded = new Set(s.shaded);
+    const blocked = litsBlocked(p, shaded);
+    return table(p.regions.map((row, r) => `<tr>${row.map((reg, c) => {
+      const k = `${r},${c}`;
+      const on = shaded.has(k);
+      const cls = `reg reg-${reg % 8} ${edges(p.regions, r, c)}${on ? ' on' : ''}${!on && blocked.has(k) ? ' blocked' : ''}${!on && !blocked.has(k) && s.dots.includes(k) ? ' dot' : ''}`.replace(/  +/g, ' ');
+      return cell(r, c, cls, !on && blocked.has(k) ? '×' : !on && s.dots.includes(k) ? '•' : '');
+    }).join('')}</tr>`));
+  },
 };
 
 // The CMO's logo brief: one row per attribute, tap an option to pick it (tap it again to clear).
@@ -126,5 +148,5 @@ const risks = {
   render: (p, s) => choiceTable(p.rows.map((row, r) => `<tr>${cell(r, -1, 'label', row.text)}${row.choices.map((ch, c) => cell(r, c, `opt${s.picks[r] === c ? ' on' : ''}`, ch)).join('')}</tr>`)),
 };
 
-export const UI = { queens, pipes, shikaku, lits, logo, risks };
+export const UI = { queens, pipes, lits, logo, risks };
 export { esc };

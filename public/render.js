@@ -1,4 +1,5 @@
 import { icon, companyAttr, companyMark, companyOf, roleOf, phaseOf, roleChips, logo, ROLE_ICON, ROLE_TITLE } from './kit.js';
+import { LIT_SHAPES } from './puzzles/ui.js';
 
 export const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -251,10 +252,6 @@ const PUZZLE_HELP = {
     rules: ['Turn the pipe tiles so every pipe meets a pipe on the next tile.', 'No pipe may point off the edge of the board, and all tiles must join one network that starts at the top-left corner.'],
     play: ['Tap a tile to turn it 90 degrees clockwise.'],
   },
-  shikaku: {
-    rules: ['Split the grid into rectangles so each rectangle holds exactly one number.', 'Each rectangle\'s area must equal its number, and every cell must be covered.'],
-    play: ['Tap one corner, then the opposite corner, to draw a rectangle.', 'Tap a cell that is already inside a rectangle to remove that rectangle. Rectangles cannot overlap.'],
-  },
   logo: {
     rules: ['The client brief names one option for each part of the logo.', 'Pick the option the brief asks for in every row, then the logo is ready.'],
     play: ['Tap an option to pick it. Tap it again to clear it.'],
@@ -264,8 +261,9 @@ const PUZZLE_HELP = {
     play: ['Tap one fix per risk. Tap it again to clear it.'],
   },
   lits: {
-    rules: ['In each coloured region, shade exactly four connected cells. Together they make one of the shapes L, I, T or S.', 'No 2 x 2 block may be shaded.', 'Two shaded pieces of the same shape may not touch edge to edge.', 'All shaded cells must join up into one group.'],
-    play: ['Tap a cell to shade it. Tap it again to unshade it.'],
+    rules: ['In each coloured region, shade exactly four connected cells. Together they make one of the four shapes below.', 'Any turn or mirror image of a shape is fine.', 'No 2 x 2 block may be shaded.', 'Two shaded pieces of the same shape may not touch edge to edge.', 'All shaded cells must join up into one group.'],
+    play: ['Single tap a cell to mark a dot. Double tap a cell to shade it, and double tap a shaded cell to unshade it.', 'Grey cells with a × cannot be shaded: they would make a 2 x 2 block, or the region already has four shaded cells.'],
+    diagram: true,
   },
 };
 
@@ -274,10 +272,18 @@ const PUZZLE_GENERAL = {
   play: ['Start a puzzle, then tap the grid to play. Skip gives up on the puzzle: the first skip is free, then each skip costs 10 coins.'],
 };
 
+// The accepted Lits shapes, drawn as small grids (filled squares are the piece).
+const shapeDiagram = () => `<div class="shape-diagram" aria-label="Accepted shapes">${Object.entries(LIT_SHAPES).map(([letter, cells]) => {
+  const rows = Math.max(...cells.map(([r]) => r)) + 1;
+  const cols = Math.max(...cells.map(([, c]) => c)) + 1;
+  const grid = Array.from({ length: rows }, (_, r) => `<tr>${Array.from({ length: cols }, (__, c) => `<td class="${cells.some(([a, b]) => a === r && b === c) ? 'on' : ''}"></td>`).join('')}</tr>`).join('');
+  return `<figure><table class="shape">${grid}</table><figcaption>${esc(letter)}</figcaption></figure>`;
+}).join('')}</div>`;
+
 export function puzzleHelp(kind) {
   const h = PUZZLE_HELP[kind] || PUZZLE_GENERAL;
   const list = (items) => `<ul>${items.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>`;
-  return `<details class="puzzle-help" open><summary>Rules and how to play</summary><h4>Rules</h4>${list(h.rules)}<h4>How to play</h4>${list(h.play)}</details>`;
+  return `<details class="puzzle-help" open><summary>Rules and how to play</summary><h4>Rules</h4>${list(h.rules)}${h.diagram ? shapeDiagram() : ''}<h4>How to play</h4>${list(h.play)}</details>`;
 }
 
 // The CFO's puzzle panel. Plain markup; #puzzle-slot is filled by the browser from its local puzzle state.
